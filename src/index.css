@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Arc Light (default) and Arc Dark tokens. The active set is chosen by <html data-theme>. */
+:root,
+[data-theme='light'] {
+  --bg: #f7f7fa;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: #ffffff;
+  --surface-muted: #eef0f5;
+  --ink: #122d45;
+  --ink-2: #334155;
+  --muted: #5d6578;
+  --subtle: #636c80;
+  --line: rgba(18, 45, 69, 0.12);
+  --line-strong: rgba(18, 45, 69, 0.4);
+  --accent: #122d45;
+  --accent-hover: #1061a6;
+  --accent-ink: #ffffff;
+  --focus: #5b93e0;
+  --success: #17703f;
+  --danger: #b4233f;
+  --warn: #9a5b00;
+  --overlay: rgba(13, 27, 47, 0.4);
+  --shadow: 0 1px 2px rgba(18, 45, 69, 0.04), 0 8px 28px rgba(18, 45, 69, 0.06);
+}
+
+[data-theme='dark'] {
+  --bg: #0d1b2f;
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-strong: #14243a;
+  --surface-muted: #1b2c43;
+  --ink: #f4f6fa;
+  --ink-2: #e3ecf9;
+  --muted: #b9c4d6;
+  --subtle: #8fa0b8;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(203, 219, 242, 0.5);
+  --accent: #acc6e9;
+  --accent-hover: #cbdbf2;
+  --accent-ink: #0d1b2f;
+  --focus: #8fb4ec;
+  --success: #8dd89f;
+  --danger: #f08795;
+  --warn: #f0b35b;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  background-color: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.display {
+  font-family: 'Space Grotesk', 'DM Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+
+.surface {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

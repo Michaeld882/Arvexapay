@@ -1,0 +1,53 @@
+# Arvexa
+
+A USDC wallet and payments app for Arc Mainnet. Connect a browser wallet to see your balance, send and receive USDC, keep USDC in a personal vault, withdraw it, and review your onchain activity. Everything shown comes from the real chain; nothing is simulated.
+
+Built with [Arc Studio](https://studio.arc.io)
+
+## Features
+
+- Dashboard with wallet balance, vault balance, quick actions and recent transactions
+- Send, Receive (address and QR code), Deposit, Withdraw and Activity
+- Swap screen that stays disabled ("Swap liquidity is not configured") until a verified provider is registered
+- Light and dark themes that persist after refresh
+- Clear wrong-network warning with a switch action; transactions are blocked off Arc Mainnet (Chain ID 5042)
+- Every transaction is checked before sending, confirmed on a review screen, and only marked successful after the receipt and expected onchain events are verified
+
+## Tech stack
+
+React 18, Vite, TypeScript, Tailwind CSS, wagmi, viem, ConnectKit. Contract: Solidity with OpenZeppelin and Foundry.
+
+## Development
+
+Prerequisites: [Bun](https://bun.sh) and [Foundry](https://book.getfoundry.sh).
+
+```bash
+bun install
+bun run dev        # start the app
+bun run build      # production build
+bun run check      # lint and typecheck
+bun run test       # app tests (uses the real Arc Mainnet RPC, read only)
+bun run test:rpc   # RPC smoke test
+bun run verify:abi         # frontend ABI vs compiled contract
+bun run verify:deployment  # read-only check of the deployed contract on Arc Mainnet
+bun run contracts:build
+bun run contracts:test
+```
+
+The app is a static build with path routes. Host it with a fallback that serves `index.html` for unknown paths.
+
+### Environment variables
+
+Copy `.env.example` to `.env`. All values are public and shipped to the browser.
+
+- `VITE_ARVEXA_CONTRACT_ADDRESS`: address of the deployed Arvexa contract. Leave empty until deployed; the app shows "Contract not configured" and disables the vault.
+- `VITE_ARVEXA_DEPLOY_BLOCK`: optional block the contract was deployed at.
+- `VITE_ARC_RPC_URL`: optional https RPC override for Arc Mainnet.
+
+Restart the dev server after changing `.env`.
+
+## Contract and deployment
+
+The contract is `contracts/Arvexa.sol`. See [docs/deployment.md](docs/deployment.md) for deployment steps and [docs/security-review.md](docs/security-review.md) for the review, test and RPC results.
+
+Arc Mainnet moves real funds and transactions are irreversible. Test on Arc Testnet and get an independent audit before using real funds.
