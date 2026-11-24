@@ -3,17 +3,19 @@ import { isAddressEqual, type Address } from 'viem'
 import { ConnectGate } from '@/components/ConnectGate'
 import { AmountInput, RecipientInput } from '@/components/Inputs'
 import { TxDialog } from '@/components/TxDialog'
+import { LastTxCard } from '@/components/LastTxCard'
 import { Banner, Button, Card, PageHeader } from '@/components/ui'
-import { useWalletUsdc } from '@/hooks/useChainData'
+import { useSpendableUsdc } from '@/hooks/useSpendable'
 import { useTxFlow } from '@/hooks/useTxFlow'
 import { classifyError } from '@/lib/errors'
+import { formatUsdcDisplay } from '@/lib/format'
 import { buildSendPlan } from '@/lib/plan'
 import { checkAmount, checkRecipient } from '@/lib/validate'
 
 function SendForm({ address }: { address: Address }) {
   const [recipient, setRecipient] = useState('')
   const [amount, setAmount] = useState('')
-  const balance = useWalletUsdc(address)
+  const { balance, spendable, feeUsdc } = useSpendableUsdc(address)
   const flow = useTxFlow({
     onSuccess: () => {
       setRecipient('')
@@ -26,8 +28,15 @@ function SendForm({ address }: { address: Address }) {
 
   const recipientError = recipient && !to.ok ? to.message : null
   const insufficient = value.ok && balance.data !== undefined && value.raw > balance.data
-  const amountError = amount && !value.ok ? value.message : insufficient ? 'Amount is higher than your USDC balance.' : null
-  const ready = to.ok && value.ok && !insufficient && balance.data !== undefined
+  const leavesNoFee = value.ok && !insufficient && spendable !== undefined && value.raw > spendable
+  const amountError = amount && !value.ok
+    ? value.message
+    : insufficient
+      ? 'Amount is higher than your USDC balance.'
+      : leavesNoFee
+        ? `That leaves too little to pay the network fee (about ${formatUsdcDisplay(feeUsdc ?? 0n)} USDC). You can send up to ${formatUsdcDisplay(spendable ?? 0n)} USDC.`
+        : null
+  const ready = to.ok && value.ok && !insufficient && !leavesNoFee && balance.data !== undefined
   const toSelf = to.ok && isAddressEqual(to.address, address)
 
   const review = () => {
@@ -46,6 +55,7 @@ function SendForm({ address }: { address: Address }) {
           balanceLabel="Wallet balance"
           balanceLoading={balance.isPending}
           balanceUnavailable={balance.isError}
+          spendable={spendable}
           disabled={flow.isBusy}
           error={amountError}
         />
@@ -68,6 +78,7 @@ function SendForm({ address }: { address: Address }) {
         </Button>
         <p className="text-center text-xs text-muted">Blockchain transfers are irreversible. Double-check the address before you confirm.</p>
       </Card>
+      <LastTxCard tx={flow.lastConfirmed} />
       <TxDialog flow={flow} walletUsdc={balance.data} />
     </>
   )

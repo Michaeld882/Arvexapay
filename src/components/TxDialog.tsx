@@ -35,8 +35,10 @@ function ReviewBody({ flow, walletUsdc }: TxDialogProps) {
   if (!plan) return null
 
   const feeUsdc = fee.data?.feeUsdc
-  const spendsFromWallet = plan.kind === 'send' || plan.kind === 'deposit'
-  const required = feeUsdc === undefined ? undefined : spendsFromWallet ? plan.amount + feeUsdc : feeUsdc
+  // USDC that leaves the wallet in this transaction (gas is paid from the same USDC pool).
+  const outflow = plan.usdcOutflow ?? (plan.kind === 'send' || plan.kind === 'deposit' ? plan.amount : 0n)
+  const spendsFromWallet = outflow > 0n
+  const required = feeUsdc === undefined ? undefined : outflow + feeUsdc
   const short = walletUsdc !== undefined && required !== undefined && walletUsdc < required ? required - walletUsdc : 0n
   const canConfirm = !wrongNetwork && feeUsdc !== undefined && walletUsdc !== undefined && short === 0n
 
@@ -60,7 +62,7 @@ function ReviewBody({ flow, walletUsdc }: TxDialogProps) {
         </Row>
         {spendsFromWallet && feeUsdc !== undefined && (
           <Row label="Total from wallet">
-            <span className="tabular-nums">{formatUsdcDisplay(plan.amount + feeUsdc)} USDC</span>
+            <span className="tabular-nums">{formatUsdcDisplay(outflow + feeUsdc)} USDC</span>
           </Row>
         )}
       </dl>
@@ -238,7 +240,7 @@ export function TxDialog({ flow, walletUsdc }: TxDialogProps) {
                 <StatusIcon status="success" />
                 <div>
                   <p className="display text-lg font-semibold">Confirmed</p>
-                  <p className="mt-1 text-sm text-muted">{plan.successText}</p>
+                  <p className="mt-1 text-sm text-muted">{state.resultText ?? plan.successText}</p>
                 </div>
                 {state.hash && (
                   <div className="rounded-2xl border border-line bg-surface-muted p-3">

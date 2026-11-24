@@ -26,6 +26,15 @@ export interface FlowState {
   plan: TxPlan | null
   hash?: Hex
   error?: AppError
+  /** What the verified receipt logs showed, when the plan reports it (shown in place of the generic success text). */
+  resultText?: string
+}
+
+/** The most recent confirmed transaction, kept after the dialog closes so the hash and explorer link stay reachable. */
+export interface LastConfirmedTx {
+  hash: Hex
+  title: string
+  resultText: string
 }
 
 const IDLE: FlowState = { phase: 'idle', plan: null }
@@ -41,6 +50,7 @@ export function useTxFlow(options: TxFlowOptions = {}) {
   const { sendTransactionAsync } = useSendTransaction()
   const queryClient = useQueryClient()
   const [state, setState] = useState<FlowState>(IDLE)
+  const [lastConfirmed, setLastConfirmed] = useState<LastConfirmedTx | null>(null)
   const planRef = useRef<TxPlan | null>(null)
   const hashRef = useRef<Hex | undefined>(undefined)
   // Synchronous lock: blocks double clicks and duplicate submissions before React re-renders.
@@ -73,14 +83,17 @@ export function useTxFlow(options: TxFlowOptions = {}) {
         updateLocalTxStatus(owner, hash, 'failed')
         throw new AppError('reverted', `Transaction ${finalHash} reverted (status ${receipt.status})`)
       }
+      let resultText: string | undefined
       try {
-        plan.verify(receipt)
+        const result = plan.verify(receipt)
+        resultText = typeof result === 'string' ? result : undefined
       } catch (err) {
         updateLocalTxStatus(owner, hash, 'unverified')
         throw err
       }
       updateLocalTxStatus(owner, hash, 'success')
-      setState({ phase: 'success', plan, hash: finalHash })
+      setState({ phase: 'success', plan, hash: finalHash, resultText })
+      setLastConfirmed({ hash: finalHash, title: plan.title, resultText: resultText ?? plan.successText })
       onSuccessRef.current?.(plan)
       void queryClient.invalidateQueries({ queryKey: ['arvexa'] })
     },
@@ -153,6 +166,7 @@ export function useTxFlow(options: TxFlowOptions = {}) {
 
   return {
     state,
+    lastConfirmed,
     isBusy: state.phase === 'signing' || state.phase === 'confirming',
     open,
     submit,

@@ -1,21 +1,71 @@
 import { useMemo, useState } from 'react'
-import type { Address } from 'viem'
+import { useQuery } from '@tanstack/react-query'
+import { erc20Abi, type Address } from 'viem'
 import { NETWORK_LABEL, USDC } from '@/chain'
 import { ActivityList } from '@/components/ActivityList'
 import { ConnectGate } from '@/components/ConnectGate'
 import { AmountInput } from '@/components/Inputs'
+import { LastTxCard } from '@/components/LastTxCard'
 import { AddressCard, NetworkInfo } from '@/components/NetworkInfo'
 import { TxDialog } from '@/components/TxDialog'
 import { Banner, Button, Card, CopyButton, PageHeader, Skeleton } from '@/components/ui'
 import { VaultGate } from '@/components/VaultStatus'
 import { useActivity } from '@/hooks/useActivity'
-import { useVaultAllowance, useWalletUsdc } from '@/hooks/useChainData'
+import { useVaultAllowance } from '@/hooks/useChainData'
+import { useSpendableUsdc } from '@/hooks/useSpendable'
 import { useTxFlow } from '@/hooks/useTxFlow'
 import { useVault } from '@/hooks/useVault'
 import { useWallet } from '@/hooks/useWallet'
 import { classifyError } from '@/lib/errors'
+import { formatUsdcDisplay } from '@/lib/format'
+import { getArcClient } from '@/lib/rpc'
+import { SWAP_TOKENS } from '@/lib/uniswap'
 import { buildApprovePlan, buildDepositPlan } from '@/lib/plan'
 import { checkAmount } from '@/lib/validate'
+
+function AssetRow({ owner, symbol, name, address, decimals }: { owner: Address; symbol: string; name: string; address: Address; decimals: number }) {
+  const balance = useQuery({
+    queryKey: ['arvexa', 'token-balance', owner, address],
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    queryFn: () => getArcClient().readContract({ address, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
+  })
+  const isUsdc = address === USDC.address
+  return (
+    <li className="rounded-2xl border border-line bg-surface-muted p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">{symbol}</p>
+          <p className="text-xs text-muted">{name} · {decimals} decimals</p>
+        </div>
+        <div className="text-right">
+          {balance.isPending ? (
+            <Skeleton className="ml-auto h-5 w-20" />
+          ) : balance.isError ? (
+            <span className="text-xs text-muted">Balance unavailable</span>
+          ) : (
+            <p className="text-sm font-semibold tabular-nums">{formatUsdcDisplay(balance.data)} {symbol}</p>
+          )}
+          <p className="text-[11px] text-subtle">{isUsdc ? 'Vault, Send, activity' : 'Held in wallet, swap only'}</p>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+function SupportedAssets({ address }: { address: Address }) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-ink">Supported assets on {NETWORK_LABEL}</h3>
+      <ul className="mt-2 space-y-2">
+        {SWAP_TOKENS.map((token) => (
+          <AssetRow key={token.address} owner={address} symbol={token.symbol} name={token.name} address={token.address} decimals={token.decimals} />
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-muted">Only USDC can go into the Arvexa vault and appear in Activity. EURC can be held in your wallet and swapped. Do not send any other token to this address.</p>
+    </div>
+  )
+}
 
 function FundWallet({ address }: { address: Address }) {
   const activity = useActivity(address)
@@ -27,6 +77,7 @@ function FundWallet({ address }: { address: Address }) {
         <p className="mt-1 text-sm text-muted">Send USDC on {NETWORK_LABEL} to your address below, from an exchange or another wallet.</p>
       </div>
       <AddressCard address={address} />
+      <SupportedAssets address={address} />
       <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink-2">
         <li>Choose USDC as the asset and {NETWORK_LABEL} as the network.</li>
         <li>Paste or scan the address above and double-check it.</li>
@@ -65,7 +116,7 @@ function VaultDeposit({ address }: { address: Address }) {
   const { isReady, isPaused } = useVault()
   const { isReady: walletReady } = useWallet()
   const [amount, setAmount] = useState('')
-  const walletUsdc = useWalletUsdc(address)
+  const { balance: walletUsdc, spendable, feeUsdc } = useSpendableUsdc(address)
   const allowance = useVaultAllowance(address, isReady)
   const flow = useTxFlow({
     onSuccess: (plan) => {
@@ -75,9 +126,16 @@ function VaultDeposit({ address }: { address: Address }) {
   const value = useMemo(() => checkAmount(amount), [amount])
 
   const insufficient = value.ok && walletUsdc.data !== undefined && value.raw > walletUsdc.data
-  const amountError = amount && !value.ok ? value.message : insufficient ? 'Amount is higher than your wallet USDC balance.' : null
+  const leavesNoFee = value.ok && !insufficient && spendable !== undefined && value.raw > spendable
+  const amountError = amount && !value.ok
+    ? value.message
+    : insufficient
+      ? 'Amount is higher than your wallet USDC balance.'
+      : leavesNoFee
+        ? `That leaves too little to pay the network fee (about ${formatUsdcDisplay(feeUsdc ?? 0n)} USDC). You can deposit up to ${formatUsdcDisplay(spendable ?? 0n)} USDC.`
+        : null
   const needsApproval = value.ok && allowance.data !== undefined && allowance.data < value.raw
-  const ready = walletReady && isReady && !isPaused && value.ok && !insufficient && walletUsdc.data !== undefined && allowance.data !== undefined
+  const ready = walletReady && isReady && !isPaused && value.ok && !insufficient && !leavesNoFee && walletUsdc.data !== undefined && allowance.data !== undefined
 
   const review = () => {
     if (!value.ok || flow.isBusy) return
@@ -100,6 +158,7 @@ function VaultDeposit({ address }: { address: Address }) {
           balanceLabel="Wallet balance"
           balanceLoading={walletUsdc.isPending}
           balanceUnavailable={walletUsdc.isError}
+          spendable={spendable}
           disabled={flow.isBusy || !isReady || isPaused || !walletReady}
           error={amountError}
         />
@@ -113,6 +172,7 @@ function VaultDeposit({ address }: { address: Address }) {
           {needsApproval ? 'Review approval' : 'Review deposit'}
         </Button>
       </Card>
+      <LastTxCard tx={flow.lastConfirmed} />
       <TxDialog flow={flow} walletUsdc={walletUsdc.data} />
     </>
   )

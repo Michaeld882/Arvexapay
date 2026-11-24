@@ -12,6 +12,8 @@ interface AmountInputProps {
   balanceLabel?: string
   balanceLoading?: boolean
   balanceUnavailable?: boolean
+  /** When set, Max fills this instead of the full balance (the balance minus the network fee, since fees are paid in USDC). */
+  spendable?: bigint
   disabled?: boolean
   error?: string | null
 }
@@ -31,6 +33,7 @@ export function AmountInput({
   balanceLabel = 'Balance',
   balanceLoading,
   balanceUnavailable,
+  spendable,
   disabled,
   error,
 }: AmountInputProps) {
@@ -69,13 +72,16 @@ export function AmountInput({
           )}
           <button
             type="button"
-            disabled={disabled || balance === undefined || balance === 0n}
-            onClick={() => balance !== undefined && onChange(formatUsdc(balance))}
+            disabled={disabled || balance === undefined || (spendable ?? balance) === 0n}
+            onClick={() => balance !== undefined && onChange(formatUsdc(spendable ?? balance))}
             className="min-h-8 rounded-lg px-2 font-semibold text-accent-hover transition-colors hover:bg-surface disabled:opacity-40"
           >
             Max
           </button>
         </div>
+        {spendable !== undefined && balance !== undefined && (
+          <p className="mt-1 text-xs text-muted tabular-nums">Spendable after the network fee: {formatUsdcDisplay(spendable)} USDC</p>
+        )}
       </div>
       {error && (
         <p id={errorId} role="alert" className="mt-2 text-sm text-danger">

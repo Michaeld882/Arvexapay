@@ -39,8 +39,13 @@ export interface TxPlan {
   call: PlannedCall
   amount: bigint
   to?: Address
-  /** Throws AppError('unverified') if the receipt lacks the expected onchain events. */
-  verify: (receipt: TransactionReceipt) => void
+  /** USDC that leaves the wallet in this transaction, when it differs from `amount` (for example a swap that sells USDC). */
+  usdcOutflow?: bigint
+  /**
+   * Throws AppError('unverified') if the receipt lacks the expected onchain events.
+   * May return a sentence describing what the verified logs showed (for example the amount received).
+   */
+  verify: (receipt: TransactionReceipt) => string | void
 }
 
 const unverified = (what: string) => new AppError('unverified', `Expected ${what} was not found in the receipt logs`)
@@ -56,12 +61,21 @@ function requireVault(): Address {
   return ARVEXA_ADDRESS
 }
 
-export function buildSendPlan(from: Address, to: Address, amount: bigint, title = 'Send USDC'): TxPlan {
+export interface SendLabels {
+  title: string
+  confirmLabel: string
+  successText: string
+}
+
+const SEND_LABELS: SendLabels = { title: 'Send USDC', confirmLabel: 'Confirm and send', successText: 'USDC sent and verified onchain.' }
+export const WALLET_WITHDRAW_LABELS: SendLabels = { title: 'Withdraw USDC', confirmLabel: 'Confirm withdrawal', successText: 'Withdrawal confirmed and verified onchain.' }
+
+export function buildSendPlan(from: Address, to: Address, amount: bigint, labels: SendLabels = SEND_LABELS): TxPlan {
   return {
     kind: 'send',
-    title,
-    confirmLabel: 'Confirm and send',
-    successText: 'USDC sent and verified onchain.',
+    title: labels.title,
+    confirmLabel: labels.confirmLabel,
+    successText: labels.successText,
     rows: [
       { label: 'Amount', value: `${formatUsdcDisplay(amount)} USDC` },
       { label: 'To', value: to, mono: true },
