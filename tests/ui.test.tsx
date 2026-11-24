@@ -348,6 +348,25 @@ describe('routing, titles and transaction status', () => {
   }, TIMEOUT * 2)
 })
 
+describe('animated amount', () => {
+  test('counts up to the exact value and finishes there, also under React StrictMode (development)', async () => {
+    const { StrictMode } = await import('react')
+    const { AnimatedAmount } = await import('@/components/AnimatedAmount')
+    const view = render(
+      <StrictMode>
+        <AnimatedAmount raw={1_234_560_000n} resetKey="a" />
+      </StrictMode>,
+    )
+    await waitFor(() => expect(view.container.textContent).toBe('1,234.56'), { timeout: 5000 })
+    view.rerender(
+      <StrictMode>
+        <AnimatedAmount raw={2_000_000_000n} resetKey="a" />
+      </StrictMode>,
+    )
+    await waitFor(() => expect(view.container.textContent).toBe('2,000.00'), { timeout: 5000 })
+  })
+})
+
 describe('wallet balance display', () => {
   const read = (who: Address) => client.readContract({ address: USDC.address, abi: erc20Abi, functionName: 'balanceOf', args: [who] })
   const SMALL = '0x1111111111111111111111111111111111111111' as Address
@@ -365,7 +384,8 @@ describe('wallet balance display', () => {
     const node = await hero()
     const onchain = await read(SMALL)
     expect(onchain).toBeGreaterThan(0n)
-    expect(node.textContent).toBe(formatUsdcDisplay(onchain))
+    // The amount counts up from zero, so wait for the final exact frame.
+    await waitFor(() => expect(node.textContent).toBe(formatUsdcDisplay(onchain)), { timeout: TIMEOUT })
     expect(node.textContent).not.toBe('0.00')
   }, TIMEOUT)
 
@@ -409,4 +429,17 @@ describe('wallet balance display', () => {
       window.fetch = realFetch
     }
   }, TIMEOUT * 2)
+})
+
+describe('no platform attribution', () => {
+  test('no "Built with" badge, watermark or studio link renders on any page', async () => {
+    for (const path of ['/', '/send', '/receive', '/swap', '/deposit', '/withdraw', '/activity', '/settings']) {
+      window.history.replaceState({}, '', path)
+      const view = mount()
+      await screen.findAllByRole('img', { name: 'Arvexa' })
+      expect(document.body.textContent).not.toMatch(/built with|arc studio/i)
+      expect(document.querySelector('a[href*="studio.arc.io"]')).toBeNull()
+      view.unmount()
+    }
+  })
 })

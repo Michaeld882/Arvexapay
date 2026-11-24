@@ -575,7 +575,7 @@ export function requireChain(chainId: number): OnchainChain {
   const chain = getChain(chainId);
 
   if (!chain) {
-    throw new Error('Unknown chain ID ' + chainId + ' — ask Arc Studio to add it to its onchain facts registry');
+    throw new Error('Unknown chain ID ' + chainId + ' — add it to the onchain facts registry');
   }
 
   return chain;
@@ -590,7 +590,7 @@ export function requireChainByScpBlockchain(blockchain: string): OnchainChain {
 
   if (!chain) {
     throw new Error(
-      "No chain for SCP blockchain '" + blockchain + "' — ask Arc Studio to add it to its onchain facts registry",
+      "No chain for SCP blockchain '" + blockchain + "' — add it to the onchain facts registry",
     );
   }
 

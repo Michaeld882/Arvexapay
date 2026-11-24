@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type HTMLAttributes, type PointerEvent, type ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Check, ChevronLeft, Copy, ExternalLink, Info, Loader2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { copyText } from '@/lib/clipboard'
@@ -8,7 +8,7 @@ import { goBack } from '@/lib/router'
 export const cx = (...parts: Array<string | false | null | undefined>): string => parts.filter(Boolean).join(' ')
 
 export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <section className={cx('surface rounded-3xl p-5 sm:p-6', className)} {...rest} />
+  return <section className={cx('surface card-in rounded-3xl p-5 sm:p-6', className)} {...rest} />
 }
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -25,15 +25,46 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
 }
 
-export function Button({ variant = 'primary', loading, className, children, disabled, type = 'button', ...rest }: ButtonProps) {
+/** Spawns a short ripple at the touch or click point. Skipped when the user prefers reduced motion. */
+function spawnRipple(event: PointerEvent<HTMLButtonElement>) {
+  if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  const button = event.currentTarget
+  const rect = button.getBoundingClientRect()
+  const size = Math.max(rect.width, rect.height) * 2.4
+  const ripple = document.createElement('span')
+  ripple.className = 'ripple'
+  ripple.style.width = ripple.style.height = `${size}px`
+  ripple.style.left = `${event.clientX - rect.left - size / 2}px`
+  ripple.style.top = `${event.clientY - rect.top - size / 2}px`
+  ripple.addEventListener('animationend', () => ripple.remove(), { once: true })
+  button.appendChild(ripple)
+}
+
+function releasePress(event: PointerEvent<HTMLButtonElement>) {
+  delete event.currentTarget.dataset.pressed
+}
+
+export function Button({ variant = 'primary', loading, className, children, disabled, type = 'button', onPointerDown, ...rest }: ButtonProps) {
+  const inactive = disabled || loading
   return (
     <button
       type={type}
-      disabled={disabled || loading}
+      disabled={inactive}
       aria-busy={loading || undefined}
+      onPointerDown={(event) => {
+        if (!inactive) {
+          spawnRipple(event)
+          event.currentTarget.dataset.pressed = 'true'
+        }
+        onPointerDown?.(event)
+      }}
+      onPointerUp={releasePress}
+      onPointerLeave={releasePress}
+      onPointerCancel={releasePress}
       className={cx(
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold transition-colors duration-200',
+        'ripple-host inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold transition-[transform,background-color,color,border-color,opacity,box-shadow] duration-200 ease-out active:scale-[0.96] data-[pressed=true]:scale-[0.96]',
         'disabled:cursor-not-allowed disabled:opacity-45',
+        (variant === 'primary' || variant === 'danger') && 'btn-glow',
         VARIANTS[variant],
         className,
       )}
@@ -81,7 +112,7 @@ export function Banner({ tone = 'info', title, children, action, className }: Ba
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cx('animate-pulse rounded-lg bg-line', className)} />
+  return <div aria-hidden className={cx('animate-pulse skeleton rounded-lg', className)} />
 }
 
 export function Spinner({ className }: { className?: string }) {

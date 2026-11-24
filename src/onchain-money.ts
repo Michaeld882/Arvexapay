@@ -326,7 +326,7 @@ export function usdcDecimalsFor(chainId: number): number {
   const usdc = getUsdc(chainId);
 
   if (!usdc) {
-    throw new AmountError('NO_USDC', `Chain ${chainId} has no USDC contract in Arc Studio's onchain facts`);
+    throw new AmountError('NO_USDC', `Chain ${chainId} has no USDC contract in the onchain facts`);
   }
 
   return usdc.decimals;

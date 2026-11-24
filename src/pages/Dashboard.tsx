@@ -2,6 +2,7 @@ import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, QrCode, RefreshCw, Se
 import type { Address } from 'viem'
 import { NETWORK_LABEL } from '@/chain'
 import { ActivityList } from '@/components/ActivityList'
+import { AnimatedAmount } from '@/components/AnimatedAmount'
 import { ConnectGate } from '@/components/ConnectGate'
 import { Banner, Button, Card, CopyButton, Skeleton, cx } from '@/components/ui'
 import { VAULT_LABEL } from '@/components/VaultStatus'
@@ -20,19 +21,21 @@ const ACTIONS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon }> = 
   { to: '/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
 ]
 
-function Amount({ raw, loading, className }: { raw: bigint | undefined; loading: boolean; className?: string }) {
+function Amount({ raw, loading, address, className }: { raw: bigint | undefined; loading: boolean; address: string; className?: string }) {
   if (loading) return <Skeleton className="h-8 w-32" />
-  return <span className={className}>{raw === undefined ? '—' : formatUsdcDisplay(raw)}</span>
+  if (raw === undefined) return <span className={className}>—</span>
+  return <AnimatedAmount raw={raw} resetKey={address} className={className} />
 }
 
 /** The hero shows the exact balance (never a rounded 0.00); longer numbers get a smaller type size. */
-function HeroAmount({ raw, loading }: { raw: bigint | undefined; loading: boolean }) {
+function HeroAmount({ raw, loading, address }: { raw: bigint | undefined; loading: boolean; address: string }) {
   if (loading) return <Skeleton className="h-11 w-48" />
   const text = raw === undefined ? '—' : formatUsdcDisplay(raw)
   const size = text.length <= 10 ? 'text-4xl sm:text-5xl' : text.length <= 14 ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl'
+  const classes = cx('display min-w-0 font-semibold tabular-nums text-ink [overflow-wrap:anywhere]', size)
   return (
-    <span data-testid="hero-balance" className={cx('display min-w-0 font-semibold tabular-nums text-ink [overflow-wrap:anywhere]', size)}>
-      {text}
+    <span data-testid="hero-balance" className={classes}>
+      {raw === undefined ? text : <AnimatedAmount raw={raw} resetKey={address} />}
     </span>
   )
 }
@@ -45,7 +48,7 @@ function DashboardContent({ address }: { address: Address }) {
 
   return (
     <div className="space-y-5">
-      <Card>
+      <Card className="rise ambient lift-lg">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
             {balances.vaultReady ? 'Total available' : 'Wallet balance'}
@@ -67,7 +70,7 @@ function DashboardContent({ address }: { address: Address }) {
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-2">
-          <HeroAmount raw={balances.total} loading={balances.isLoading} />
+          <HeroAmount raw={balances.total} loading={balances.isLoading} address={address} />
           <span className="text-lg font-medium text-subtle">USDC</span>
         </div>
         <p className="mt-2 text-xs text-muted">{NETWORK_LABEL}</p>
@@ -78,17 +81,17 @@ function DashboardContent({ address }: { address: Address }) {
         )}
 
         <dl className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-surface-muted p-3.5">
+          <div className="rise lift rounded-2xl bg-surface-muted p-3.5" style={{ ['--d' as string]: '180ms' }}>
             <dt className="text-xs text-muted">Wallet USDC</dt>
             <dd className="mt-1 text-base font-semibold tabular-nums">
-              <Amount raw={balances.walletRaw} loading={balances.wallet.isPending} />
+              <Amount raw={balances.walletRaw} loading={balances.wallet.isPending} address={address} />
             </dd>
           </div>
-          <div className="rounded-2xl bg-surface-muted p-3.5">
+          <div className="rise lift rounded-2xl bg-surface-muted p-3.5" style={{ ['--d' as string]: '250ms' }}>
             <dt className="text-xs text-muted">Arvexa vault</dt>
             <dd className="mt-1 text-base font-semibold tabular-nums">
               {balances.vaultReady ? (
-                <Amount raw={balances.vaultRaw} loading={balances.vault.isPending} />
+                <Amount raw={balances.vaultRaw} loading={balances.vault.isPending} address={address} />
               ) : (
                 <span className="text-sm font-medium text-muted">{VAULT_LABEL[vault.state]}</span>
               )}
@@ -116,11 +119,12 @@ function DashboardContent({ address }: { address: Address }) {
       )}
 
       <nav aria-label="Quick actions" className="grid grid-cols-5 gap-2 sm:gap-3">
-        {ACTIONS.map(({ to, label, icon: Icon }) => (
+        {ACTIONS.map(({ to, label, icon: Icon }, index) => (
           <Link
             key={to}
             to={to}
-            className="surface flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-xs font-semibold text-ink transition-colors hover:border-line-strong"
+            style={{ ['--d' as string]: `${300 + index * 60}ms` }}
+            className="surface lift rise flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-xs font-semibold text-ink"
           >
             <Icon className="size-5" aria-hidden />
             {label}
@@ -128,7 +132,7 @@ function DashboardContent({ address }: { address: Address }) {
         ))}
       </nav>
 
-      <Card>
+      <Card className="rise lift-lg" style={{ ['--d' as string]: '640ms' }}>
         <div className="mb-1 flex items-center justify-between">
           <h2 className="display text-lg font-semibold">Recent transactions</h2>
           <Link to="/activity" className="text-xs font-semibold text-accent-hover hover:underline">

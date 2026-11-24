@@ -17,9 +17,9 @@ function readInitialTheme(): Theme {
     const stored = window.localStorage.getItem(STORAGE_KEY)
     if (stored === 'light' || stored === 'dark') return stored
   } catch {
-    // storage can be blocked inside embedded previews; fall back to the system setting
+    // storage can be blocked inside embedded previews; fall back to the default
   }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return 'dark'
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

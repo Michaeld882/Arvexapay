@@ -3,49 +3,56 @@
 @tailwind utilities;
 
 /* Arc Light (default) and Arc Dark tokens. The active set is chosen by <html data-theme>. */
+/* Dark green is the default look; light keeps the same green accent. <html data-theme> picks the set. */
 :root,
 [data-theme='light'] {
-  --bg: #f7f7fa;
-  --surface: rgba(255, 255, 255, 0.82);
+  --glow: rgba(15, 122, 82, 0.38);
+  --glow-soft: rgba(15, 122, 82, 0.1);
+  --bg: #f3f8f5;
+  --surface: rgba(255, 255, 255, 0.86);
   --surface-strong: #ffffff;
-  --surface-muted: #eef0f5;
-  --ink: #122d45;
-  --ink-2: #334155;
-  --muted: #5d6578;
-  --subtle: #636c80;
-  --line: rgba(18, 45, 69, 0.12);
-  --line-strong: rgba(18, 45, 69, 0.4);
-  --accent: #122d45;
-  --accent-hover: #1061a6;
+  --surface-muted: #e8f1ec;
+  --ink: #0c2118;
+  --ink-2: #2a3f34;
+  --muted: #4f6257;
+  --subtle: #566a5e;
+  --line: rgba(12, 33, 24, 0.12);
+  --line-strong: rgba(12, 33, 24, 0.4);
+  --accent: #0f7a52;
+  --accent-hover: #0b6544;
   --accent-ink: #ffffff;
-  --focus: #5b93e0;
+  --accent-soft: rgba(15, 122, 82, 0.1);
+  --focus: #1a9467;
   --success: #17703f;
   --danger: #b4233f;
-  --warn: #9a5b00;
-  --overlay: rgba(13, 27, 47, 0.4);
-  --shadow: 0 1px 2px rgba(18, 45, 69, 0.04), 0 8px 28px rgba(18, 45, 69, 0.06);
+  --warn: #8f5400;
+  --overlay: rgba(8, 20, 14, 0.45);
+  --shadow: 0 1px 2px rgba(12, 33, 24, 0.04), 0 8px 28px rgba(12, 33, 24, 0.06);
 }
 
 [data-theme='dark'] {
-  --bg: #0d1b2f;
-  --surface: rgba(255, 255, 255, 0.06);
-  --surface-strong: #14243a;
-  --surface-muted: #1b2c43;
-  --ink: #f4f6fa;
-  --ink-2: #e3ecf9;
-  --muted: #b9c4d6;
-  --subtle: #8fa0b8;
-  --line: rgba(255, 255, 255, 0.12);
-  --line-strong: rgba(203, 219, 242, 0.5);
-  --accent: #acc6e9;
-  --accent-hover: #cbdbf2;
-  --accent-ink: #0d1b2f;
-  --focus: #8fb4ec;
-  --success: #8dd89f;
-  --danger: #f08795;
-  --warn: #f0b35b;
-  --overlay: rgba(0, 0, 0, 0.55);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.25);
+  --glow: rgba(47, 191, 134, 0.5);
+  --glow-soft: rgba(47, 191, 134, 0.16);
+  --bg: #08110d;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-strong: #0f1b15;
+  --surface-muted: #15231b;
+  --ink: #ecf5f0;
+  --ink-2: #d2e2d9;
+  --muted: #a3b8ac;
+  --subtle: #8ea597;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(95, 217, 160, 0.38);
+  --accent: #2fbf86;
+  --accent-hover: #4fd6a0;
+  --accent-ink: #04150d;
+  --accent-soft: rgba(47, 191, 134, 0.14);
+  --focus: #5fd9a3;
+  --success: #5fd98f;
+  --danger: #f27d88;
+  --warn: #e9b65f;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 28px rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -66,6 +73,12 @@ body {
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
+/* A faint green glow behind the top of the page in dark mode. Static, so it costs nothing at runtime. */
+[data-theme='dark'] body {
+  background-image: radial-gradient(900px 420px at 50% -140px, rgba(47, 191, 134, 0.1), transparent 70%);
+  background-repeat: no-repeat;
+}
+
 .display {
   font-family: 'Space Grotesk', 'DM Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   letter-spacing: -0.03em;
@@ -79,8 +92,7 @@ body {
   background-color: var(--surface);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  /* No backdrop blur here: the page behind cards is flat, so it adds nothing visible and makes animated cards expensive. */
   transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
@@ -89,9 +101,106 @@ body {
   outline-offset: 2px;
 }
 
+/* Motion: short, GPU-friendly (opacity and transform only). */
+
+/* ---------- Motion ----------
+   Enter animations use fill-mode `backwards` so that after they finish the element is back under its
+   normal styles (hover and press transforms still work, and no stray containing block is left behind). */
+:root { --ease-out: cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes card-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.card-in { animation: card-in 0.55s var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
+.page-in { animation: page-in 0.5s var(--ease-out) backwards; }
+.rise { animation: rise 0.65s var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
+.slide-in { animation: slide-in 0.45s var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
+.fade-in { animation: fade-in 0.35s ease-out backwards; animation-delay: var(--d, 0ms); }
+
+.skeleton {
+  background-image: linear-gradient(90deg, var(--line) 0%, var(--glow-soft) 50%, var(--line) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+/* Cards: lift, scale and glow on hover; press on tap. Hover only where a real pointer exists. */
+.lift { transition: transform 0.32s var(--ease-out), box-shadow 0.32s ease, border-color 0.25s ease, background-color 0.25s ease; }
+@media (hover: hover) {
+  .lift:hover { transform: translateY(-4px) scale(1.012); border-color: var(--line-strong); box-shadow: 0 18px 44px -20px var(--glow), 0 0 0 1px var(--line-strong); }
+}
+.lift:active { transform: scale(0.97); box-shadow: 0 0 0 4px var(--glow-soft); transition-duration: 0.1s; }
+
+/* Large cards get a calmer version of the same lift. */
+.lift-lg { transition: transform 0.4s var(--ease-out), box-shadow 0.4s ease, border-color 0.25s ease; }
+@media (hover: hover) {
+  .lift-lg:hover { transform: translateY(-3px) scale(1.004); border-color: var(--line-strong); box-shadow: 0 22px 54px -26px var(--glow); }
+}
+.lift-lg:active { transform: scale(0.992); transition-duration: 0.12s; }
+
+/* Buttons: soft glow on hover, ring burst on press, ripple from the touch point. */
+.btn-glow { box-shadow: 0 0 0 0 transparent; }
+@media (hover: hover) {
+  .btn-glow:hover:not(:disabled) { box-shadow: 0 10px 30px -10px var(--glow); }
+}
+
+.btn-glow:active:not(:disabled), .btn-glow[data-pressed='true']:not(:disabled) { box-shadow: 0 0 0 6px var(--glow-soft); }
+.ripple-host { position: relative; overflow: hidden; isolation: isolate; }
+.ripple {
+  position: absolute; border-radius: 9999px; pointer-events: none; z-index: -1;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), transparent 68%);
+  transform: scale(0); opacity: 0.9;
+  animation: ripple 0.7s ease-out forwards;
+}
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+
+/* Touch feedback everywhere: no grey flash, instant taps, a small press. */
+a, button, [role='button'] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+a:active:not(.lift), .tap:active { opacity: 0.8; }
+
+/* Status icons */
+@keyframes pop { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pulse-ring { 0% { transform: scale(0.7); opacity: 0.55; } 100% { transform: scale(1.7); opacity: 0; } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 18% { transform: translateX(-6px); } 36% { transform: translateX(5px); } 54% { transform: translateX(-3px); } 72% { transform: translateX(2px); } }
+@keyframes dot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
+.status-pop { animation: pop 0.5s var(--ease-out) backwards; }
+.status-check { stroke-dasharray: 26; stroke-dashoffset: 26; animation: draw 0.45s 0.25s ease-out forwards; }
+.status-ring { animation: pulse-ring 1.8s ease-out infinite; }
+.status-shake { animation: shake 0.5s ease-in-out; }
+.pulse-dot { animation: dot-pulse 1.4s ease-in-out infinite; }
+
+/* Slow ambient glow inside selected cards (transform only, so it stays cheap). */
+.ambient { position: relative; overflow: hidden; isolation: isolate; }
+.ambient::before, .ambient::after { content: ''; position: absolute; z-index: -1; pointer-events: none; border-radius: 9999px; aspect-ratio: 1; will-change: transform; }
+.ambient::before { width: 70%; left: -15%; top: -55%; background: radial-gradient(circle, var(--glow-soft), transparent 66%); animation: drift-a 14s ease-in-out infinite alternate; }
+.ambient::after { width: 62%; right: -18%; bottom: -60%; background: radial-gradient(circle, var(--glow-soft), transparent 66%); animation: drift-b 18s ease-in-out infinite alternate; }
+@keyframes drift-a { to { transform: translate3d(40%, 30%, 0) scale(1.18); } }
+@keyframes drift-b { to { transform: translate3d(-45%, -25%, 0) scale(1.12); } }
+
+/* Thin loading bar under the header while onchain data is being fetched. */
+@keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+.progress-bar { animation: progress 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

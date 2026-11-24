@@ -1,13 +1,13 @@
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, ShieldAlert, XCircle } from 'lucide-react'
 import { NETWORK_LABEL } from '@/chain'
 import { useFeeEstimate } from '@/hooks/useFeeEstimate'
 import type { useTxFlow } from '@/hooks/useTxFlow'
 import { useWallet } from '@/hooks/useWallet'
 import { classifyError, type AppError } from '@/lib/errors'
 import { formatUsdcDisplay, shortHash } from '@/lib/format'
-import { Banner, Button, ExplorerLink, Row, Skeleton, Spinner } from '@/components/ui'
+import { Banner, Button, ExplorerLink, Row, Skeleton } from '@/components/ui'
+import { StatusIcon } from '@/components/StatusIcon'
 
 type Flow = ReturnType<typeof useTxFlow>
 
@@ -119,7 +119,7 @@ function ReviewBody({ flow, walletUsdc }: TxDialogProps) {
 function Progress({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-center">
-      <Spinner className="size-8 text-accent-hover" />
+      <StatusIcon status="pending" />
       <p className="display text-lg font-semibold">{title}</p>
       {children && <div className="text-sm text-muted">{children}</div>}
     </div>
@@ -172,7 +172,7 @@ export function TxDialog({ flow, walletUsdc }: TxDialogProps) {
   return (
     <AnimatePresence>
       {open && plan && (
-        <motion.div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}>
           <button
             type="button"
             tabIndex={-1}
@@ -190,10 +190,9 @@ export function TxDialog({ flow, walletUsdc }: TxDialogProps) {
             aria-label={plan.title}
             onKeyDown={trapFocus}
             className="relative max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-line bg-surface-strong p-5 pb-[76px] shadow-2xl outline-none sm:rounded-3xl sm:pb-5"
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+            initial={{ y: 28, scale: 0.94, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ y: 16, scale: 0.96, opacity: 0, transition: { duration: 0.18, ease: 'easeIn' } }}
           >
             <h2 className="display mb-4 text-xl font-semibold">{plan.title}</h2>
 
@@ -236,7 +235,7 @@ export function TxDialog({ flow, walletUsdc }: TxDialogProps) {
 
             {state.phase === 'success' && (
               <div className="space-y-4 text-center">
-                <CheckCircle2 className="mx-auto size-12 text-success" aria-hidden />
+                <StatusIcon status="success" />
                 <div>
                   <p className="display text-lg font-semibold">Confirmed</p>
                   <p className="mt-1 text-sm text-muted">{plan.successText}</p>
@@ -258,7 +257,7 @@ export function TxDialog({ flow, walletUsdc }: TxDialogProps) {
 
             {state.phase === 'failed' && (
               <div className="space-y-4 text-center">
-                {unverified ? <ShieldAlert className="mx-auto size-12 text-warn" aria-hidden /> : <XCircle className="mx-auto size-12 text-danger" aria-hidden />}
+                <StatusIcon status={unverified ? 'warn' : 'failed'} />
                 <div>
                   <p className="display text-lg font-semibold">{unverified ? 'Could not verify result' : 'Transaction failed'}</p>
                   <p className="mt-1 text-sm text-muted">{state.error?.message}</p>

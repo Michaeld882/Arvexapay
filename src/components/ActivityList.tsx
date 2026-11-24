@@ -25,9 +25,10 @@ function StatusPill({ status }: { status: ActivityStatus }) {
   const { label, color } = STATUS_META[status]
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
       style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
     >
+      {status === 'pending' && <span aria-hidden className="pulse-dot size-1.5 rounded-full" style={{ background: color }} />}
       {label}
     </span>
   )
@@ -39,11 +40,14 @@ function whenLabel(item: ActivityItem): string {
   return 'Just now'
 }
 
-export function ActivityRow({ item, compact = false }: { item: ActivityItem; compact?: boolean }) {
+export function ActivityRow({ item, compact = false, index = 0 }: { item: ActivityItem; compact?: boolean; index?: number }) {
   const { label, icon: Icon, sign } = KIND_META[item.kind]
   const toward = item.kind === 'receive' ? 'From' : item.kind === 'deposit' ? 'To vault' : 'To'
   return (
-    <li className="flex items-start gap-3 py-3.5">
+    <li
+      className="slide-in -mx-2 flex items-start gap-3 rounded-2xl px-2 py-3.5 transition-colors duration-200 hover:bg-accent-soft"
+      style={{ ['--d' as string]: `${(index % 8) * 55}ms` }}
+    >
       <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-ink-2">
         <Icon className="size-[18px]" aria-hidden />
       </span>
@@ -82,8 +86,8 @@ export function ActivityRow({ item, compact = false }: { item: ActivityItem; com
 export function ActivityList({ items, compact = false }: { items: readonly ActivityItem[]; compact?: boolean }) {
   return (
     <ul className="divide-y divide-line">
-      {items.map((item) => (
-        <ActivityRow key={item.id} item={item} compact={compact} />
+      {items.map((item, index) => (
+        <ActivityRow key={item.id} item={item} compact={compact} index={index} />
       ))}
     </ul>
   )

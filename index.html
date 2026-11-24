@@ -3,11 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="generator" content="Arc Studio by Circle — https://studio.arc.io" />
     <meta name="description" content="Arvexa: send, receive, deposit and withdraw USDC on Arc Mainnet." />
     <title>Arvexa</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" content="#0c2d57" />
+    <meta name="theme-color" content="#08110d" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,11 +15,10 @@
     />
     <script>
       (function () {
-        var theme = 'light';
+        var theme = 'dark';
         try {
           var stored = localStorage.getItem('arvexa:theme');
           if (stored === 'light' || stored === 'dark') theme = stored;
-          else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark';
         } catch (e) {}
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.style.colorScheme = theme;
@@ -28,7 +26,6 @@
     </script>
   </head>
   <body>
-    <!-- Built with Arc Studio — https://studio.arc.io -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

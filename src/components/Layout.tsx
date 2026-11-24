@@ -8,6 +8,7 @@ import { NAV_ITEMS } from '@/components/nav'
 import { cx } from '@/components/ui'
 import { NetworkBanner } from '@/components/NetworkBanner'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { TopProgress } from '@/components/TopProgress'
 import { WalletButton } from '@/components/WalletButton'
 import { useWallet } from '@/hooks/useWallet'
 
@@ -33,11 +34,12 @@ function NetworkPill() {
   )
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+/** pillId is set only where the active highlight should glide between items (the desktop sidebar). */
+function NavLinks({ onNavigate, pillId, stagger = false }: { onNavigate?: () => void; pillId?: string; stagger?: boolean }) {
   const route = useRoute()
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
-      {NAV_ITEMS.map(({ path, label, icon: Icon }) => {
+      {NAV_ITEMS.map(({ path, label, icon: Icon }, index) => {
         const active = route === path
         return (
           <Link
@@ -45,13 +47,26 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             to={path}
             onClick={onNavigate}
             aria-current={active ? 'page' : undefined}
+            style={stagger ? { ['--d' as string]: `${140 + index * 45}ms` } : undefined}
             className={cx(
-              'flex min-h-11 items-center gap-3 rounded-2xl px-3.5 text-sm font-medium transition-colors duration-200',
-              active ? 'bg-accent text-accent-ink' : 'text-ink-2 hover:bg-surface-muted',
+              'group relative flex min-h-11 items-center gap-3 rounded-2xl px-3.5 text-sm font-medium transition-[color,background-color,transform] duration-200 active:scale-[0.97]',
+              stagger && 'slide-in',
+              active ? 'text-ink' : 'text-ink-2 hover:bg-surface-muted',
             )}
           >
-            <Icon className="size-[18px]" aria-hidden />
-            {label}
+            {active &&
+              (pillId ? (
+                <motion.span
+                  layoutId={pillId}
+                  aria-hidden
+                  className="absolute inset-0 rounded-2xl border border-line-strong bg-accent-soft"
+                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                />
+              ) : (
+                <span aria-hidden className="fade-in absolute inset-0 rounded-2xl border border-line-strong bg-accent-soft" />
+              ))}
+            <Icon className={cx('relative size-[18px] transition-[color,transform] duration-200 group-hover:translate-x-0.5', active && 'text-accent-hover')} aria-hidden />
+            <span className="relative">{label}</span>
           </Link>
         )
       })}
@@ -94,11 +109,12 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
           </div>
         </div>
+        <TopProgress />
       </header>
 
       <div className="mx-auto flex max-w-6xl gap-8 px-4 pb-24 pt-6">
         <aside className="sticky top-24 hidden h-fit w-56 shrink-0 md:block">
-          <NavLinks />
+          <NavLinks pillId="nav-pill-desktop" />
         </aside>
         <main className="min-w-0 max-w-2xl flex-1">
           <NetworkBanner />
@@ -126,7 +142,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <X className="size-4" aria-hidden />
                 </button>
               </div>
-              <NavLinks onNavigate={() => setMenuOpen(false)} />
+              <NavLinks stagger onNavigate={() => setMenuOpen(false)} />
             </motion.aside>
           </motion.div>
         )}

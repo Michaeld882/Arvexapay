@@ -30,7 +30,7 @@ export function AddressCard({ address, caption }: { address: string; caption?: s
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-        <QRCodeSVG value={address} size={176} level="M" bgColor="#ffffff" fgColor="#122d45" title={`QR code for ${address}`} />
+        <QRCodeSVG value={address} size={176} level="M" bgColor="#ffffff" fgColor="#0c2118" title={`QR code for ${address}`} />
       </div>
       {caption && <p className="text-xs text-muted">{caption}</p>}
       <p className="mono w-full rounded-2xl border border-line bg-surface-muted px-4 py-3 text-sm text-ink [overflow-wrap:anywhere]">{address}</p>

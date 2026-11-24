@@ -48,13 +48,15 @@ export default function App() {
   const Page = PAGES[route]
   return (
     <Layout>
-      {Page ? (
-        <Suspense fallback={<PageFallback />}>
-          <Page />
-        </Suspense>
-      ) : (
-        <NotFound />
-      )}
+      <div key={route} className="page-in">
+        {Page ? (
+          <Suspense fallback={<PageFallback />}>
+            <Page />
+          </Suspense>
+        ) : (
+          <NotFound />
+        )}
+      </div>
     </Layout>
   )
 }

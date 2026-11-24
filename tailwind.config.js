@@ -20,6 +20,7 @@ export default {
         accent: 'var(--accent)',
         'accent-hover': 'var(--accent-hover)',
         'accent-ink': 'var(--accent-ink)',
+        'accent-soft': 'var(--accent-soft)',
         success: 'var(--success)',
         danger: 'var(--danger)',
         warn: 'var(--warn)',
