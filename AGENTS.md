@@ -37,6 +37,12 @@ Arvexa is a USDC wallet and payments app on Arc Mainnet (chain 5042): dashboard,
 
 None yet. Mainnet deployment is done by the user from their own wallet (see `docs/deployment.md`). Record the address here after deployment.
 
+## Intro screen
+
+- `src/components/onboarding/` is the single intro/landing screen. `useAppGate` (`src/lib/onboarding.ts`) shows it whenever no wallet is connected, with no timer, no skip and nothing stored. Its Connect Wallet button opens the existing ConnectKit modal (same logic as `WalletButton`), and a connected wallet switches straight to the app. A restored session shows a blank moment, then the app. There is no separate connect page or second intro.
+- The four cards are Send & Receive, Scan & Pay, Split Payment and Request Pay, as the owner specified. Only Send & Receive exists in this codebase; the other three have no screens here. Swap, Deposit, Withdraw and Bridge are mentioned in one line under the cards.
+- `ArcMark` in `ArcHero.tsx` is a drawn stand-in, not Circle's official Arc artwork.
+
 ## Circle integration (`src/circle/`)
 
 - `config.ts` is the only place Circle env vars are read (all public `VITE_`). Never put a Circle API key, entity secret or private key in browser code.

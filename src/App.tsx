@@ -1,6 +1,9 @@
 import { Suspense, lazy, type ComponentType, type LazyExoticComponent } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Layout } from '@/components/Layout'
 import { Button, Card, PageHeader, Skeleton } from '@/components/ui'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { useAppGate } from '@/lib/onboarding'
 import { navigate, useRoute } from '@/lib/router'
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
@@ -49,7 +52,7 @@ function NotFound() {
   )
 }
 
-export default function App() {
+function MainApp() {
   const route = useRoute()
   const Page = PAGES[route]
   return (
@@ -64,5 +67,27 @@ export default function App() {
         )}
       </div>
     </Layout>
+  )
+}
+
+/**
+ * One intro screen before a wallet is connected, with the Connect Wallet button on it. Connecting opens the existing
+ * wallet modal; once a wallet is connected the existing app shows, with no screen in between.
+ */
+export default function App() {
+  const gate = useAppGate()
+  if (gate === 'splash') return <div className="min-h-dvh" aria-busy />
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {gate === 'intro' ? (
+        <motion.div key="intro" exit={{ opacity: 0, filter: 'blur(6px)' }} transition={{ duration: 0.28 }}>
+          <Onboarding />
+        </motion.div>
+      ) : (
+        <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+          <MainApp />
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

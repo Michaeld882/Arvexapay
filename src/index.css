@@ -256,3 +256,67 @@ a:active:not(.lift), .tap:active { opacity: 0.8; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Onboarding (always dark, independent of the app theme) ---------- */
+.ob-root {
+  --ob-green: #2cf5a6;
+  --ob-cyan: #22d3ee;
+  --ob-blue: #4f8cff;
+  --ob-purple: #a855f7;
+  position: relative;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  color: #eaf3ff;
+  background:
+    radial-gradient(700px 420px at 12% -8%, rgba(44, 245, 166, 0.16), transparent 65%),
+    radial-gradient(640px 420px at 100% 8%, rgba(168, 85, 247, 0.18), transparent 65%),
+    radial-gradient(700px 520px at 50% 105%, rgba(34, 211, 238, 0.12), transparent 65%),
+    #050913;
+}
+.ob-glass {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 18px 50px -28px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.ob-grad-text { background-image: linear-gradient(100deg, var(--ob-green), var(--ob-cyan) 45%, var(--ob-purple)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+@keyframes ob-orbit { to { transform: rotate(360deg); } }
+@keyframes ob-orbit-rev { to { transform: rotate(-360deg); } }
+@keyframes ob-pulse { 0%, 100% { box-shadow: 0 0 28px 2px rgba(44, 245, 166, 0.45), 0 0 70px 10px rgba(34, 211, 238, 0.22); transform: scale(1); } 50% { box-shadow: 0 0 44px 8px rgba(44, 245, 166, 0.65), 0 0 100px 22px rgba(168, 85, 247, 0.3); transform: scale(1.05); } }
+@keyframes ob-twinkle { 0%, 100% { opacity: 0.15; transform: translateY(0) scale(0.8); } 50% { opacity: 0.95; transform: translateY(-8px) scale(1.15); } }
+@keyframes ob-shift { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+@keyframes ob-glow { 0%, 100% { box-shadow: 0 10px 40px -10px rgba(44, 245, 166, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.12) inset; } 50% { box-shadow: 0 14px 56px -8px rgba(34, 211, 238, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.2) inset; } }
+@keyframes ob-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.ob-rise { animation: ob-rise 0.7s var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
+
+/* Orbit: the ring turns, the item on it turns the other way so it stays upright. */
+.ob-ring { position: absolute; left: 50%; top: 50%; border-radius: 9999px; border: 1px solid rgba(120, 220, 255, 0.22); animation: ob-orbit var(--t, 20s) linear infinite; animation-direction: var(--dir, normal); }
+.ob-ring-item { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); }
+.ob-ring-item > * { animation: ob-orbit-rev var(--t, 20s) linear infinite; animation-direction: var(--dir, normal); }
+.ob-logo { animation: ob-pulse 3.6s ease-in-out infinite; }
+.ob-dot { position: absolute; border-radius: 9999px; animation: ob-twinkle var(--t, 4s) ease-in-out infinite; animation-delay: var(--d, 0s); }
+
+.ob-cta { background-image: linear-gradient(100deg, #2cf5a6, #22d3ee 40%, #a855f7 80%, #2cf5a6); background-size: 220% 100%; animation: ob-shift 6s linear infinite, ob-glow 3.2s ease-in-out infinite; color: #04101a; }
+.ob-cta:active { transform: scale(0.97); }
+
+/* Feature demos (each is a short loop that starts when the card opens). */
+@keyframes ob-coin { 0% { left: 14%; opacity: 0; transform: translateY(-50%) scale(0.6); } 12% { opacity: 1; transform: translateY(-50%) scale(1); } 62% { left: 76%; opacity: 1; transform: translateY(-50%) scale(1); } 74%, 100% { left: 76%; opacity: 0; transform: translateY(-50%) scale(0.5); } }
+@keyframes ob-badge { 0%, 60% { opacity: 0; transform: scale(0.6); } 72%, 92% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+@keyframes ob-scanline { 0% { top: 4%; opacity: 0; } 8% { opacity: 1; } 42% { top: 92%; opacity: 1; } 48%, 100% { top: 92%; opacity: 0; } }
+@keyframes ob-qr { 0%, 50% { opacity: 1; filter: none; } 62%, 92% { opacity: 0.18; filter: blur(2px); } 100% { opacity: 1; } }
+@keyframes ob-sheet { 0%, 52% { opacity: 0; transform: translateY(14px) scale(0.96); } 64%, 92% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes ob-pending { 0%, 44% { opacity: 1; } 52%, 94% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes ob-paid { 0%, 44% { opacity: 0; transform: scale(0.8); } 54%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes ob-fill { 0% { transform: scaleX(0.04); } 46%, 94% { transform: scaleX(1); } 100% { transform: scaleX(0.04); } }
+@keyframes ob-seg { 0%, 44% { opacity: 0.25; } 54%, 94% { opacity: 1; } 100% { opacity: 0.25; } }
+@keyframes ob-flow { 0% { left: 0; opacity: 0; } 10%, 90% { opacity: 1; } 100% { left: calc(100% - 10px); opacity: 0; } }
+@keyframes ob-step { 0%, 100% { box-shadow: 0 0 0 0 transparent; border-color: rgba(255, 255, 255, 0.16); } 12%, 30% { box-shadow: 0 0 24px 2px var(--c); border-color: var(--c); } }
+.ob-demo-loop { animation-duration: 5s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-ring, .ob-ring-item > *, .ob-logo, .ob-dot, .ob-cta { animation: none !important; }
+}
+@keyframes ob-nudge { 0%, 100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
+@keyframes ob-breath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }

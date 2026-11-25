@@ -66,29 +66,31 @@ afterEach(async () => {
   delete (window as unknown as { ethereum?: unknown }).ethereum
 })
 
-const mount = () =>
-  render(
+const mount = () => {
+  return render(
     <Providers>
       <App />
     </Providers>,
   )
+}
 
 describe('wallet and network', () => {
-  test('disconnected users see a connect prompt and no balance', async () => {
+  test('disconnected users see the intro with its Connect Wallet button, never a second connect page, and no balance', async () => {
     await open('/send')
     mount()
-    expect(await screen.findByText('Connect your wallet')).toBeTruthy()
+    expect(await screen.findByRole('button', { name: /Connect Wallet/ })).toBeTruthy()
+    expect(screen.queryByText('Connect your wallet')).toBeNull()
     expect(screen.queryByText(/Wallet balance/)).toBeNull()
   })
 
   test('wrong network is flagged, transactions are gated, and switching works', async () => {
     const wallet = (await open('/send', { chainId: 1 })) as MockWallet
     mount()
-    expect(await screen.findByText('Wrong network', {}, { timeout: TIMEOUT })).toBeTruthy()
+    expect((await screen.findAllByText('Wrong network', {}, { timeout: TIMEOUT })).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Review send' })).toBeNull()
     fireEvent.click(await screen.findByRole('button', { name: 'Switch network' }))
     await waitFor(() => expect(wallet.calls.some((c) => c.method === 'wallet_switchEthereumChain')).toBe(true), { timeout: TIMEOUT })
-    await waitFor(() => expect(screen.queryByText('Wrong network')).toBeNull(), { timeout: TIMEOUT })
+    await waitFor(() => expect(screen.queryAllByText('Wrong network')).toHaveLength(0), { timeout: TIMEOUT })
     expect(wallet.chainId).toBe(ARC_CHAIN_ID)
   }, TIMEOUT * 2)
 })
@@ -196,7 +198,7 @@ describe('receive and theme', () => {
   }, TIMEOUT * 2)
 
   test('theme switches immediately and persists across a remount', async () => {
-    await open('/settings')
+    await open('/settings', { chainId: ARC_CHAIN_ID })
     window.localStorage.setItem('arvexa:theme', 'light')
     const view = mount()
     fireEvent.click((await screen.findAllByRole('button', { name: 'Switch to dark theme' }))[0])
@@ -287,6 +289,7 @@ describe('live activity and request budget', () => {
 
 describe('back navigation and logo', () => {
   test('every secondary page has Back, and a directly opened page falls back to the dashboard', async () => {
+    await open('/send', { chainId: ARC_CHAIN_ID })
     for (const path of ['/send', '/receive', '/swap', '/deposit', '/withdraw', '/activity', '/settings']) {
       window.history.replaceState({}, '', path)
       const view = mount()
@@ -298,14 +301,14 @@ describe('back navigation and logo', () => {
   }, TIMEOUT)
 
   test('the dashboard has no Back button and the header shows the Arvexa logo', async () => {
-    window.history.replaceState({}, '', '/')
+    await open('/', { chainId: ARC_CHAIN_ID })
     mount()
     expect((await screen.findAllByRole('img', { name: 'Arvexa' })).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Go back' })).toBeNull()
   })
 
   test('Back returns to the previous in-app page when one exists', async () => {
-    window.history.replaceState({}, '', '/')
+    await open('/', { chainId: ARC_CHAIN_ID })
     mount()
     fireEvent.click((await screen.findAllByRole('link', { name: 'Receive' }))[0])
     await screen.findByRole('button', { name: 'Go back' })
@@ -317,7 +320,7 @@ describe('back navigation and logo', () => {
 
 describe('routing, titles and transaction status', () => {
   test('unknown routes show a not-found page with a way home, and titles follow the page', async () => {
-    window.history.replaceState({}, '', '/nope')
+    await open('/nope', { chainId: ARC_CHAIN_ID })
     const view = mount()
     expect(await screen.findByText('Page not found')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Go to Dashboard' }))

@@ -25,12 +25,13 @@ async function open(path: string) {
   return wallet
 }
 
-const mount = () =>
-  render(
+const mount = () => {
+  return render(
     <Providers>
       <App />
     </Providers>,
   )
+}
 
 afterEach(async () => {
   cleanup()

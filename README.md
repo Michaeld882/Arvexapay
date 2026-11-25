@@ -6,6 +6,7 @@ Built with [Arc Studio](https://studio.arc.io)
 
 ## Features
 
+- One animated intro screen for every disconnected visitor: what Arc is and how the main payment features work, with the Connect Wallet button on it. Connecting opens the wallet modal and goes straight into the app
 - Dashboard with wallet balance, vault balance, quick actions and recent transactions
 - Send, Receive (address and QR code), Deposit, Withdraw and Activity
 - Circle Integration area: USDC on Arc status, native CCTP bridging into Arc from other chains, a Gateway unified USDC balance (kept separate from wallet and vault balances), and payment rails with payment tracking
