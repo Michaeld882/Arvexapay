@@ -6,48 +6,62 @@
 /* Dark green is the default look; light keeps the same green accent. <html data-theme> picks the set. */
 :root,
 [data-theme='light'] {
-  --glow: rgba(15, 122, 82, 0.38);
-  --glow-soft: rgba(15, 122, 82, 0.1);
-  --bg: #f3f8f5;
-  --surface: rgba(255, 255, 255, 0.86);
+  --glow: rgba(12, 150, 112, 0.42);
+  --glow-soft: rgba(12, 150, 112, 0.12);
+  --bg: #ecf6f1;
+  --surface: rgba(255, 255, 255, 0.9);
   --surface-strong: #ffffff;
-  --surface-muted: #e8f1ec;
+  --surface-muted: #e1f0ea;
+  --accent-2: #09807b;
+  --grad-accent: linear-gradient(135deg, #0c7f56 0%, #09807b 100%);
+  --grad-card: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 253, 250, 0.82));
+  --grad-hero: linear-gradient(145deg, #ffffff 0%, #e2f6ec 52%, #d3f1ee 100%);
+  --hi: rgba(255, 255, 255, 0.9);
+  --page-glow-a: rgba(16, 168, 118, 0.16);
+  --page-glow-b: rgba(14, 160, 170, 0.13);
   --ink: #0c2118;
   --ink-2: #2a3f34;
   --muted: #4f6257;
   --subtle: #566a5e;
-  --line: rgba(12, 33, 24, 0.12);
-  --line-strong: rgba(12, 33, 24, 0.4);
-  --accent: #0f7a52;
-  --accent-hover: #0b6544;
+  --line: rgba(12, 60, 44, 0.13);
+  --line-strong: rgba(12, 110, 80, 0.45);
+  --accent: #0c7f56;
+  --accent-hover: #09694a;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(15, 122, 82, 0.1);
-  --focus: #1a9467;
+  --accent-soft: rgba(12, 150, 112, 0.12);
+  --focus: #12a373;
   --success: #17703f;
   --danger: #b4233f;
   --warn: #8f5400;
   --overlay: rgba(8, 20, 14, 0.45);
-  --shadow: 0 1px 2px rgba(12, 33, 24, 0.04), 0 8px 28px rgba(12, 33, 24, 0.06);
+  --shadow: 0 1px 2px rgba(12, 60, 44, 0.05), 0 10px 32px rgba(12, 110, 80, 0.09);
 }
 
 [data-theme='dark'] {
-  --glow: rgba(47, 191, 134, 0.5);
-  --glow-soft: rgba(47, 191, 134, 0.16);
-  --bg: #08110d;
-  --surface: rgba(255, 255, 255, 0.045);
-  --surface-strong: #0f1b15;
-  --surface-muted: #15231b;
+  --glow: rgba(38, 214, 160, 0.55);
+  --glow-soft: rgba(38, 214, 160, 0.18);
+  --bg: #06100c;
+  --surface: rgba(255, 255, 255, 0.055);
+  --surface-strong: #0e1c16;
+  --surface-muted: #12261d;
+  --accent-2: #22cdc4;
+  --grad-accent: linear-gradient(135deg, #2fd68f 0%, #22cdc4 100%);
+  --grad-card: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025));
+  --grad-hero: linear-gradient(145deg, rgba(47, 214, 143, 0.2) 0%, rgba(34, 205, 196, 0.12) 55%, rgba(255, 255, 255, 0.03) 100%);
+  --hi: rgba(255, 255, 255, 0.09);
+  --page-glow-a: rgba(47, 214, 143, 0.14);
+  --page-glow-b: rgba(34, 205, 196, 0.1);
   --ink: #ecf5f0;
   --ink-2: #d2e2d9;
   --muted: #a3b8ac;
   --subtle: #8ea597;
-  --line: rgba(255, 255, 255, 0.09);
-  --line-strong: rgba(95, 217, 160, 0.38);
-  --accent: #2fbf86;
-  --accent-hover: #4fd6a0;
-  --accent-ink: #04150d;
-  --accent-soft: rgba(47, 191, 134, 0.14);
-  --focus: #5fd9a3;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(70, 226, 170, 0.42);
+  --accent: #2fd68f;
+  --accent-hover: #5be8ae;
+  --accent-ink: #03140d;
+  --accent-soft: rgba(38, 214, 160, 0.15);
+  --focus: #5be8ae;
   --success: #5fd98f;
   --danger: #f27d88;
   --warn: #e9b65f;
@@ -73,9 +87,11 @@ body {
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* A faint green glow behind the top of the page in dark mode. Static, so it costs nothing at runtime. */
-[data-theme='dark'] body {
-  background-image: radial-gradient(900px 420px at 50% -140px, rgba(47, 191, 134, 0.1), transparent 70%);
+/* Green and teal light behind the top of the page. Static gradients, so they cost nothing at runtime. */
+body {
+  background-image:
+    radial-gradient(820px 380px at 18% -120px, var(--page-glow-a), transparent 70%),
+    radial-gradient(760px 360px at 86% -100px, var(--page-glow-b), transparent 70%);
   background-repeat: no-repeat;
 }
 
@@ -90,8 +106,9 @@ body {
 
 .surface {
   background-color: var(--surface);
+  background-image: var(--grad-card);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 1px 0 var(--hi), var(--shadow);
   /* No backdrop blur here: the page behind cards is flat, so it adds nothing visible and makes animated cards expensive. */
   transition: background-color 0.25s ease, border-color 0.25s ease;
 }
@@ -100,6 +117,41 @@ body {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+
+/* ---------- Brand polish: green to teal ---------- */
+
+/* Every solid accent surface (primary buttons, selected toggles, the loading bar) is a green to teal gradient. */
+.bg-accent { background-image: var(--grad-accent); }
+.btn-primary { background-image: var(--grad-accent); color: var(--accent-ink); }
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); }
+}
+
+/* The hero balance card: a tinted gradient with a soft glowing edge. */
+.hero-card {
+  background-image: var(--grad-hero);
+  border-color: var(--line-strong);
+  box-shadow: inset 0 1px 0 var(--hi), 0 22px 60px -30px var(--glow), 0 0 0 1px var(--glow-soft);
+}
+
+/* A small glowing status dot. */
+.dot-live { box-shadow: 0 0 0 3px var(--glow-soft), 0 0 10px 0 var(--glow); }
+
+/* Quick-action tiles: a tinted icon chip that fills with the brand gradient on hover. */
+.icon-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.5rem; height: 2.5rem; border-radius: 0.9rem;
+  color: var(--tint, var(--accent-hover));
+  background: color-mix(in srgb, var(--tint, var(--accent)) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint, var(--accent)) 28%, transparent);
+  transition: background-color 0.25s ease, color 0.25s ease, transform 0.3s var(--ease-out), box-shadow 0.3s ease;
+}
+@media (hover: hover) {
+  .tile:hover .icon-chip { background-image: var(--grad-accent); color: var(--accent-ink); border-color: transparent; transform: scale(1.08); box-shadow: 0 8px 20px -8px var(--glow); }
+}
+
+/* Small pill for balances inside the hero card. */
+.stat-pill { background: color-mix(in srgb, var(--accent) 10%, var(--surface-muted)); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
 
 /* Motion: short, GPU-friendly (opacity and transform only). */
 

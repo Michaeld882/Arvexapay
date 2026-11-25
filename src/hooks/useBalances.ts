@@ -7,9 +7,10 @@ import { useVault } from '@/hooks/useVault'
  * so it is never queried or added again. total is undefined whenever a needed read has not succeeded.
  */
 export function useBalances(address: Address | undefined) {
-  const { isReady: vaultReady } = useVault()
+  const { isReady: vaultReady, configured } = useVault()
   const wallet = useWalletUsdc(address)
-  const vault = useVaultBalance(address, vaultReady)
+  // Starts alongside the contract check instead of after it; the value is used only once the contract is verified.
+  const vault = useVaultBalance(address, configured)
 
   const walletRaw = wallet.data
   const vaultRaw = vaultReady ? vault.data : 0n

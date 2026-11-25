@@ -86,8 +86,17 @@ describe('send receipt verification', () => {
 })
 
 describe('swap configuration', () => {
-  test('no provider is registered, so swaps stay disabled instead of being simulated', () => {
-    expect(SWAP_PROVIDERS).toHaveLength(0)
-    expect(SWAP_CONFIGURED).toBe(false)
+  test('exactly one real provider is registered, with USDC and EURC on the official Arc USDC address', () => {
+    expect(SWAP_PROVIDERS).toHaveLength(1)
+    expect(SWAP_CONFIGURED).toBe(true)
+    const [provider] = SWAP_PROVIDERS
+    expect(provider.tokens.map((token) => token.symbol)).toEqual(expect.arrayContaining(['USDC', 'EURC']))
+    expect(provider.tokens.find((token) => token.symbol === 'USDC')?.address).toBe(USDC.address)
+    expect(typeof provider.quote).toBe('function')
+    expect(typeof provider.buildTransaction).toBe('function')
   })
+
+  test('the provider contracts verify against live Arc Mainnet (read only)', async () => {
+    await SWAP_PROVIDERS[0].verify()
+  }, 30_000)
 })

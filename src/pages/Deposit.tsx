@@ -4,6 +4,7 @@ import { erc20Abi, type Address } from 'viem'
 import { NETWORK_LABEL, USDC } from '@/chain'
 import { ActivityList } from '@/components/ActivityList'
 import { ConnectGate } from '@/components/ConnectGate'
+import { DisabledHint } from '@/components/DisabledHint'
 import { AmountInput } from '@/components/Inputs'
 import { LastTxCard } from '@/components/LastTxCard'
 import { AddressCard, NetworkInfo } from '@/components/NetworkInfo'
@@ -11,7 +12,7 @@ import { TxDialog } from '@/components/TxDialog'
 import { Banner, Button, Card, CopyButton, PageHeader, Skeleton } from '@/components/ui'
 import { VaultGate } from '@/components/VaultStatus'
 import { useActivity } from '@/hooks/useActivity'
-import { useVaultAllowance } from '@/hooks/useChainData'
+import { useVaultAllowance, useWalletUsdc } from '@/hooks/useChainData'
 import { useSpendableUsdc } from '@/hooks/useSpendable'
 import { useTxFlow } from '@/hooks/useTxFlow'
 import { useVault } from '@/hooks/useVault'
@@ -24,13 +25,17 @@ import { buildApprovePlan, buildDepositPlan } from '@/lib/plan'
 import { checkAmount } from '@/lib/validate'
 
 function AssetRow({ owner, symbol, name, address, decimals }: { owner: Address; symbol: string; name: string; address: Address; decimals: number }) {
-  const balance = useQuery({
+  const isUsdc = address === USDC.address
+  // USDC shares the wallet balance query used everywhere else, so it is read once, not twice.
+  const usdcBalance = useWalletUsdc(isUsdc ? owner : undefined)
+  const otherBalance = useQuery({
     queryKey: ['arvexa', 'token-balance', owner, address],
+    enabled: !isUsdc,
     staleTime: 15_000,
     refetchOnWindowFocus: true,
     queryFn: () => getArcClient().readContract({ address, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
   })
-  const isUsdc = address === USDC.address
+  const balance = isUsdc ? usdcBalance : otherBalance
   return (
     <li className="rounded-2xl border border-line bg-surface-muted p-3.5">
       <div className="flex items-center justify-between gap-3">
@@ -68,12 +73,13 @@ function SupportedAssets({ address }: { address: Address }) {
 }
 
 function FundWallet({ address }: { address: Address }) {
+  const { vault } = useVault()
   const activity = useActivity(address)
   const incoming = activity.items.filter((item) => item.kind === 'receive').slice(0, 5)
   return (
     <Card className="space-y-5">
       <div>
-        <h2 className="display text-lg font-semibold">1. Fund your wallet</h2>
+        <h2 className="display text-lg font-semibold">{vault.state === 'missing' ? 'Fund your wallet' : '1. Fund your wallet'}</h2>
         <p className="mt-1 text-sm text-muted">Send USDC on {NETWORK_LABEL} to your address below, from an exchange or another wallet.</p>
       </div>
       <AddressCard address={address} />
@@ -113,11 +119,11 @@ function FundWallet({ address }: { address: Address }) {
 }
 
 function VaultDeposit({ address }: { address: Address }) {
-  const { isReady, isPaused } = useVault()
+  const { isReady, isPaused, configured, vault } = useVault()
   const { isReady: walletReady } = useWallet()
   const [amount, setAmount] = useState('')
   const { balance: walletUsdc, spendable, feeUsdc } = useSpendableUsdc(address)
-  const allowance = useVaultAllowance(address, isReady)
+  const allowance = useVaultAllowance(address, configured)
   const flow = useTxFlow({
     onSuccess: (plan) => {
       if (plan.kind === 'deposit') setAmount('')
@@ -137,10 +143,33 @@ function VaultDeposit({ address }: { address: Address }) {
   const needsApproval = value.ok && allowance.data !== undefined && allowance.data < value.raw
   const ready = walletReady && isReady && !isPaused && value.ok && !insufficient && !leavesNoFee && walletUsdc.data !== undefined && allowance.data !== undefined
 
+  const reason = ready
+    ? null
+    : flow.isBusy
+      ? 'A transaction is in progress.'
+      : !walletReady
+        ? 'Switch your wallet to Arc Mainnet to deposit.'
+        : !isReady
+          ? 'The Arvexa vault contract is not verified yet, so vault deposits are disabled.'
+          : isPaused
+            ? 'Deposits are paused by the contract owner.'
+            : !value.ok
+              ? amountError
+                ? null
+                : 'Enter an amount to continue.'
+              : amountError
+                ? null
+                : walletUsdc.data === undefined || allowance.data === undefined
+                  ? 'Reading your balance and approval.'
+                  : null
+
   const review = () => {
     if (!value.ok || flow.isBusy) return
     flow.open(needsApproval ? buildApprovePlan(address, value.raw) : buildDepositPlan(address, value.raw))
   }
+
+  // No vault contract configured: there is nothing to deposit into, so the vault section is not shown at all.
+  if (vault.state === 'missing') return null
 
   return (
     <>
@@ -171,6 +200,7 @@ function VaultDeposit({ address }: { address: Address }) {
         <Button className="w-full" disabled={!ready || flow.isBusy} onClick={review}>
           {needsApproval ? 'Review approval' : 'Review deposit'}
         </Button>
+        <DisabledHint reason={reason} />
       </Card>
       <LastTxCard tx={flow.lastConfirmed} />
       <TxDialog flow={flow} walletUsdc={walletUsdc.data} />
@@ -179,9 +209,10 @@ function VaultDeposit({ address }: { address: Address }) {
 }
 
 export default function Deposit() {
+  const { vault } = useVault()
   return (
     <>
-      <PageHeader title="Deposit" subtitle="Get USDC into your wallet, then optionally into your Arvexa vault." />
+      <PageHeader title="Deposit" subtitle={vault.state === 'missing' ? 'Get USDC into your wallet on Arc Mainnet.' : 'Get USDC into your wallet, then optionally into your Arvexa vault.'} />
       <div className="space-y-5">
         <ConnectGate allowWrongNetwork>
           {(address) => (

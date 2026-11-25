@@ -43,6 +43,8 @@ interface ActivityPage {
   head: bigint
   /** True when a later window failed; older activity can still be loaded with Load older. */
   incomplete: boolean
+  /** True for an interim page published while the rest of the first scan is still running. */
+  partial?: boolean
 }
 
 function looksLikeRangeError(err: unknown): boolean {
@@ -167,7 +169,12 @@ async function attachTimestamps(items: ActivityItem[]): Promise<void> {
   }
 }
 
-async function loadPage(user: Address, cursor: bigint | undefined, signal: AbortSignal): Promise<ActivityPage> {
+async function loadPage(
+  user: Address,
+  cursor: bigint | undefined,
+  signal: AbortSignal,
+  onPartial?: (page: ActivityPage) => void,
+): Promise<ActivityPage> {
   const head = cursor === undefined ? await getArcClient().getBlockNumber() : cursor
   const maxWindows = cursor === undefined ? FIRST_PAGE_WINDOWS : NEXT_PAGE_WINDOWS
   let toBlock = head
@@ -189,6 +196,13 @@ async function loadPage(user: Address, cursor: bigint | undefined, signal: Abort
     }
     if (fromBlock === 0n || items.length >= ENOUGH_ITEMS) break
     toBlock = fromBlock - 1n
+    // Show what the first window found right away instead of waiting for every window to be scanned.
+    if (onPartial && items.length > 0 && scannedWindows < maxWindows) {
+      const interim = sortActivity([...items])
+      await attachTimestamps(interim)
+      if (signal.aborted) break
+      onPartial({ items: interim, fromBlock, toBlock: head, head, incomplete: false, partial: true })
+    }
   }
   signal.throwIfAborted()
   await attachTimestamps(sortActivity(items))
@@ -219,12 +233,22 @@ async function reconcilePending(owner: string, hashes: readonly `0x${string}`[])
 export function useActivity(user: Address | undefined) {
   const localTxs = useLocalTxs(user)
   const queryClient = useQueryClient()
+  const queryKey = ['arvexa', 'activity', ARC_CHAIN_ID, ARVEXA_ADDRESS, user]
   const query = useInfiniteQuery({
-    queryKey: ['arvexa', 'activity', ARC_CHAIN_ID, ARVEXA_ADDRESS, user],
+    queryKey,
     enabled: Boolean(user),
     staleTime: 60_000,
     initialPageParam: undefined as bigint | undefined,
-    queryFn: ({ pageParam, signal }) => loadPage(user as Address, pageParam, signal),
+    queryFn: ({ pageParam, signal }) =>
+      loadPage(
+        user as Address,
+        pageParam,
+        signal,
+        // Only the very first load publishes interim results; a refetch keeps the pages already shown.
+        pageParam === undefined && queryClient.getQueryData(queryKey) === undefined
+          ? (page) => queryClient.setQueryData(queryKey, { pages: [page], pageParams: [undefined] }, { updatedAt: 0 })
+          : undefined,
+      ),
     getNextPageParam: (last) => (last.fromBlock > 0n ? last.fromBlock - 1n : undefined),
   })
 
@@ -249,7 +273,7 @@ export function useActivity(user: Address | undefined) {
     isError: query.isError,
     error: query.error,
     isFetching: query.isFetching,
-    hasMore: query.hasNextPage,
+    hasMore: query.hasNextPage && !pages.some((page) => page.partial),
     isFetchingMore: query.isFetchingNextPage,
     loadMore: () => void query.fetchNextPage(),
     refresh: () => void queryClient.resetQueries({ queryKey: ['arvexa', 'activity'] }),

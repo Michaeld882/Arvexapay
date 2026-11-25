@@ -5,10 +5,8 @@ import { ActivityList } from '@/components/ActivityList'
 import { AnimatedAmount } from '@/components/AnimatedAmount'
 import { ConnectGate } from '@/components/ConnectGate'
 import { Banner, Button, Card, CopyButton, Skeleton, cx } from '@/components/ui'
-import { VAULT_LABEL } from '@/components/VaultStatus'
 import { useActivity } from '@/hooks/useActivity'
 import { useBalances } from '@/hooks/useBalances'
-import { useVault } from '@/hooks/useVault'
 import { classifyError } from '@/lib/errors'
 import { formatUsdcDisplay, shortAddress } from '@/lib/format'
 import { Link } from '@/lib/router'
@@ -20,12 +18,6 @@ const ACTIONS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon }> = 
   { to: '/deposit', label: 'Deposit', icon: ArrowDownToLine },
   { to: '/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
 ]
-
-function Amount({ raw, loading, address, className }: { raw: bigint | undefined; loading: boolean; address: string; className?: string }) {
-  if (loading) return <Skeleton className="h-8 w-32" />
-  if (raw === undefined) return <span className={className}>—</span>
-  return <AnimatedAmount raw={raw} resetKey={address} className={className} />
-}
 
 /** The hero shows the exact balance (never a rounded 0.00); longer numbers get a smaller type size. */
 function HeroAmount({ raw, loading, address }: { raw: bigint | undefined; loading: boolean; address: string }) {
@@ -42,13 +34,12 @@ function HeroAmount({ raw, loading, address }: { raw: bigint | undefined; loadin
 
 function DashboardContent({ address }: { address: Address }) {
   const balances = useBalances(address)
-  const { vault } = useVault()
   const activity = useActivity(address)
   const recent = activity.items.slice(0, 5)
 
   return (
     <div className="space-y-5">
-      <Card className="rise ambient lift-lg">
+      <Card className="rise ambient lift-lg hero-card">
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
             {balances.vaultReady ? 'Total available' : 'Wallet balance'}
@@ -74,31 +65,30 @@ function DashboardContent({ address }: { address: Address }) {
           <span className="text-lg font-medium text-subtle">USDC</span>
         </div>
         <p className="mt-2 text-xs text-muted">{NETWORK_LABEL}</p>
+        {balances.vaultReady && (
+          <dl className="mt-4 flex flex-wrap gap-2" aria-label="Where your USDC is">
+            <div className="stat-pill rounded-full px-3 py-1.5 text-xs">
+              <dt className="inline text-muted">In wallet </dt>
+              <dd className="inline font-semibold tabular-nums text-ink">
+                {balances.walletRaw === undefined ? '—' : formatUsdcDisplay(balances.walletRaw)}
+              </dd>
+            </div>
+            <div className="stat-pill rounded-full px-3 py-1.5 text-xs">
+              <dt className="inline text-muted">In vault </dt>
+              <dd className="inline font-semibold tabular-nums text-ink">
+                {balances.vaultRaw === undefined ? '—' : formatUsdcDisplay(balances.vaultRaw)}
+              </dd>
+            </div>
+          </dl>
+        )}
         {balances.total === 0n && !balances.isError && (
-          <p className="mt-3 rounded-2xl bg-surface-muted p-3 text-xs text-ink-2">
-            This address holds no USDC on Arc Mainnet. Balances are read from Arc Mainnet only, so USDC on Arc Testnet or another network is not counted here.
+          <p className="mt-4 rounded-2xl bg-accent-soft p-3 text-xs text-ink-2">
+            No USDC on Arc Mainnet at this address yet. USDC on other networks is not counted.{' '}
+            <Link to="/deposit" className="font-semibold text-accent-hover hover:underline">
+              Add funds
+            </Link>
           </p>
         )}
-
-        <dl className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rise lift rounded-2xl bg-surface-muted p-3.5" style={{ ['--d' as string]: '180ms' }}>
-            <dt className="text-xs text-muted">Wallet USDC</dt>
-            <dd className="mt-1 text-base font-semibold tabular-nums">
-              <Amount raw={balances.walletRaw} loading={balances.wallet.isPending} address={address} />
-            </dd>
-          </div>
-          <div className="rise lift rounded-2xl bg-surface-muted p-3.5" style={{ ['--d' as string]: '250ms' }}>
-            <dt className="text-xs text-muted">Arvexa vault</dt>
-            <dd className="mt-1 text-base font-semibold tabular-nums">
-              {balances.vaultReady ? (
-                <Amount raw={balances.vaultRaw} loading={balances.vault.isPending} address={address} />
-              ) : (
-                <span className="text-sm font-medium text-muted">{VAULT_LABEL[vault.state]}</span>
-              )}
-            </dd>
-          </div>
-        </dl>
-        <p className="mt-3 text-xs text-muted">Network fees are paid in USDC from your wallet balance. There is no separate gas token, so it is not counted twice.</p>
         <div className="mt-4 flex gap-2">
           <CopyButton value={address} label="Copy address" className="min-h-10 flex-1" />
         </div>
@@ -123,10 +113,12 @@ function DashboardContent({ address }: { address: Address }) {
           <Link
             key={to}
             to={to}
-            style={{ ['--d' as string]: `${300 + index * 60}ms` }}
-            className="surface lift rise flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-xs font-semibold text-ink"
+            style={{ ['--d' as string]: `${300 + index * 60}ms`, ['--tint' as string]: index % 2 === 0 ? 'var(--accent)' : 'var(--accent-2)' }}
+            className="tile surface lift rise flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-xs font-semibold text-ink"
           >
-            <Icon className="size-5" aria-hidden />
+            <span className="icon-chip">
+              <Icon className="size-5" aria-hidden />
+            </span>
             {label}
           </Link>
         ))}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { isAddressEqual, type Address } from 'viem'
 import { ConnectGate } from '@/components/ConnectGate'
+import { DisabledHint } from '@/components/DisabledHint'
 import { AmountInput, RecipientInput } from '@/components/Inputs'
 import { TxDialog } from '@/components/TxDialog'
 import { LastTxCard } from '@/components/LastTxCard'
@@ -37,7 +38,17 @@ function SendForm({ address }: { address: Address }) {
         ? `That leaves too little to pay the network fee (about ${formatUsdcDisplay(feeUsdc ?? 0n)} USDC). You can send up to ${formatUsdcDisplay(spendable ?? 0n)} USDC.`
         : null
   const ready = to.ok && value.ok && !insufficient && !leavesNoFee && balance.data !== undefined
+  const reason = flowReason()
   const toSelf = to.ok && isAddressEqual(to.address, address)
+
+  function flowReason(): string | null {
+    if (ready) return null
+    if (flow.isBusy) return 'A transaction is in progress.'
+    if (!to.ok) return recipientError ? null : 'Enter a recipient address to continue.'
+    if (!value.ok) return amountError ? null : 'Enter an amount to continue.'
+    if (balance.isError) return null
+    return amountError ? null : 'Waiting for your balance to load.'
+  }
 
   const review = () => {
     if (!to.ok || !value.ok || flow.isBusy) return
@@ -76,6 +87,7 @@ function SendForm({ address }: { address: Address }) {
         <Button className="w-full" disabled={!ready || flow.isBusy} onClick={review}>
           Review send
         </Button>
+        <DisabledHint reason={reason} />
         <p className="text-center text-xs text-muted">Blockchain transfers are irreversible. Double-check the address before you confirm.</p>
       </Card>
       <LastTxCard tx={flow.lastConfirmed} />

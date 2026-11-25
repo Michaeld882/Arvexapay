@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Address } from 'viem'
 import { ConnectGate } from '@/components/ConnectGate'
+import { DisabledHint } from '@/components/DisabledHint'
 import { AmountInput, RecipientInput } from '@/components/Inputs'
 import { LastTxCard } from '@/components/LastTxCard'
 import { TxDialog } from '@/components/TxDialog'
@@ -23,7 +24,9 @@ const SOURCES: ReadonlyArray<{ id: Source; label: string }> = [
 ]
 
 function WithdrawForm({ address }: { address: Address }) {
-  const { isReady } = useVault()
+  const { isReady, configured, vault } = useVault()
+  // With no vault contract configured there is nothing to choose: show the wallet withdrawal on its own.
+  const showVault = vault.state !== 'missing'
   const [chosen, setChosen] = useState<Source | null>(null)
   // Wallet withdrawals work on any network-verified wallet; the vault needs a verified contract.
   const source: Source = chosen ?? (isReady ? 'vault' : 'wallet')
@@ -32,7 +35,7 @@ function WithdrawForm({ address }: { address: Address }) {
   const [recipient, setRecipient] = useState('')
   const [amount, setAmount] = useState('')
   const { balance: wallet, spendable, feeUsdc } = useSpendableUsdc(address)
-  const vaultBalance = useVaultBalance(address, isReady)
+  const vaultBalance = useVaultBalance(address, configured)
   const flow = useTxFlow({ onSuccess: () => setAmount('') })
 
   const to = useMemo(() => checkRecipient(recipient), [recipient])
@@ -53,6 +56,24 @@ function WithdrawForm({ address }: { address: Address }) {
         : null
   const ready = to.ok && value.ok && !insufficient && !leavesNoFee && available !== undefined && (!fromVault || isReady)
 
+  const reason = ready
+    ? null
+    : flow.isBusy
+      ? 'A transaction is in progress.'
+      : fromVault && !isReady
+        ? 'The Arvexa vault contract is not verified, so vault withdrawals are disabled. You can still withdraw from your wallet.'
+        : !to.ok
+          ? recipientError
+            ? null
+            : 'Enter a recipient address to continue.'
+          : !value.ok
+            ? amountError
+              ? null
+              : 'Enter an amount to continue.'
+            : available === undefined && !(fromVault ? vaultBalance.isError : wallet.isError)
+              ? 'Waiting for your balance to load.'
+              : null
+
   const review = () => {
     if (!to.ok || !value.ok || flow.isBusy) return
     flow.open(fromVault ? buildWithdrawPlan(address, to.address, value.raw) : buildSendPlan(address, to.address, value.raw, WALLET_WITHDRAW_LABELS))
@@ -64,6 +85,7 @@ function WithdrawForm({ address }: { address: Address }) {
   return (
     <>
       <div className="space-y-4">
+        {showVault && (
         <div role="radiogroup" aria-label="Withdraw from" className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface-muted p-1">
           {SOURCES.map(({ id, label }) => (
             <button
@@ -82,7 +104,8 @@ function WithdrawForm({ address }: { address: Address }) {
             </button>
           ))}
         </div>
-        {(fromVault || !isReady) && <VaultGate />}
+        )}
+        {showVault && (fromVault || !isReady) && <VaultGate />}
         <Card className="space-y-5">
           <RecipientInput label="Withdraw to" value={recipient} onChange={setRecipient} error={recipientError} disabled={flow.isBusy} />
           <AmountInput
@@ -113,6 +136,7 @@ function WithdrawForm({ address }: { address: Address }) {
           <Button className="w-full" disabled={!ready || flow.isBusy} onClick={review}>
             Review withdrawal
           </Button>
+          <DisabledHint reason={reason} />
           <p className="text-center text-xs text-muted">
             {fromVault
               ? 'Vault withdrawals only ever pay out your own vault balance. Nobody else can move it.'
@@ -127,9 +151,13 @@ function WithdrawForm({ address }: { address: Address }) {
 }
 
 export default function Withdraw() {
+  const { vault } = useVault()
   return (
     <>
-      <PageHeader title="Withdraw" subtitle="Send USDC out to any address, from your wallet or your Arvexa vault. You review everything before your wallet is asked to sign." />
+      <PageHeader
+        title="Withdraw"
+        subtitle={`Send USDC out to any address${vault.state === 'missing' ? '' : ', from your wallet or your Arvexa vault'}. You review everything before your wallet is asked to sign.`}
+      />
       <ConnectGate>{(address) => <WithdrawForm address={address} />}</ConnectGate>
     </>
   )

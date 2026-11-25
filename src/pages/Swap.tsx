@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { erc20Abi, type Address } from 'viem'
 import { ArrowDownUp, ShieldCheck } from 'lucide-react'
 import { ConnectGate } from '@/components/ConnectGate'
+import { DisabledHint } from '@/components/DisabledHint'
 import { LastTxCard } from '@/components/LastTxCard'
 import { TxDialog } from '@/components/TxDialog'
 import { Banner, Button, Card, PageHeader, Skeleton, cx } from '@/components/ui'
@@ -127,6 +128,24 @@ function SwapForm({ address, provider }: { address: Address; provider: SwapProvi
   const impact = quote.data?.priceImpact ?? 0
   const needsAccept = impact > PRICE_IMPACT_BLOCK
   const canReview = quoteIsCurrent && !insufficient && !leavesNoFee && (!needsAccept || accepted) && !building && !flow.isBusy
+
+  const reason = canReview
+    ? null
+    : flow.isBusy || building
+      ? 'A swap is in progress.'
+      : sameToken
+        ? 'Choose two different tokens.'
+        : parsedNow === undefined
+          ? 'Enter an amount to get a live quote.'
+          : insufficient || leavesNoFee
+            ? null
+            : quote.isError
+              ? null
+              : !quoteIsCurrent
+                ? 'Getting a live quote from the pool.'
+                : needsAccept && !accepted
+                  ? 'Accept the price impact above to continue.'
+                  : null
 
   const flip = () => {
     setTokenIn(tokenOut)
@@ -341,6 +360,7 @@ function SwapForm({ address, provider }: { address: Address; provider: SwapProvi
           <Button className="w-full" disabled={!canReview} loading={building || (Boolean(request) && quote.isFetching && !quote.data)} onClick={() => void review()}>
             Review swap
           </Button>
+          <DisabledHint reason={reason} />
           <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted">
             <ShieldCheck className="size-3.5" aria-hidden /> Quoted and simulated onchain before you sign. Slippage is capped at 1%.
           </p>

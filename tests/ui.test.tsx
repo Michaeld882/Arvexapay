@@ -154,24 +154,31 @@ describe('send flow', () => {
 })
 
 describe('configuration states', () => {
-  test('swap, deposit vault and withdraw never pretend to be configured', async () => {
+  test('swap needs a verified provider and a live quote; deposit vault and withdraw never pretend to be configured', async () => {
     await open('/swap', { chainId: ARC_CHAIN_ID })
     const first = mount()
-    expect(await screen.findByText('Swap liquidity is not configured', { selector: 'p' })).toBeTruthy()
-    expect((screen.getByRole('button', { name: 'Swap unavailable' }) as HTMLButtonElement).disabled).toBe(true)
+    // A verified provider is registered, so the real swap form appears once its contracts check out on Arc Mainnet.
+    // With no amount there is no quote, so nothing can be reviewed or signed.
+    const review = (await screen.findByRole('button', { name: 'Review swap' }, { timeout: TIMEOUT })) as HTMLButtonElement
+    expect(review.disabled).toBe(true)
+    expect(screen.queryByText('Swap liquidity is not configured')).toBeNull()
     first.unmount()
 
+    // No vault contract is configured, so no vault option and no configuration warning is shown to the user.
     window.history.pushState({}, '', '/withdraw')
     const second = mount()
-    expect((await screen.findAllByText('Contract not configured')).length).toBeGreaterThan(0)
-    expect((screen.getByRole('button', { name: 'Review withdrawal' }) as HTMLButtonElement).disabled).toBe(true)
+    const withdraw = (await screen.findByRole('button', { name: 'Review withdrawal' }, { timeout: TIMEOUT })) as HTMLButtonElement
+    expect(withdraw.disabled).toBe(true)
+    expect(screen.queryByText('Contract not configured')).toBeNull()
+    expect(screen.queryByRole('radiogroup', { name: 'Withdraw from' })).toBeNull()
     second.unmount()
 
     window.history.pushState({}, '', '/deposit')
     mount()
-    expect((await screen.findAllByText('Contract not configured')).length).toBeGreaterThan(0)
-    expect((screen.getByRole('button', { name: 'Review deposit' }) as HTMLButtonElement).disabled).toBe(true)
-  }, TIMEOUT * 2)
+    expect(await screen.findByText('Fund your wallet', {}, { timeout: TIMEOUT })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Review deposit' })).toBeNull()
+    expect(screen.queryByText('Contract not configured')).toBeNull()
+  }, TIMEOUT * 3)
 })
 
 describe('receive and theme', () => {
@@ -393,7 +400,7 @@ describe('wallet balance display', () => {
     await open('/', { chainId: ARC_CHAIN_ID, account: EMPTY })
     mount()
     expect((await hero()).textContent).toBe('0.00')
-    expect(await screen.findByText(/holds no USDC on Arc Mainnet/)).toBeTruthy()
+    expect(await screen.findByText(/No USDC on Arc Mainnet at this address yet/)).toBeTruthy()
   }, TIMEOUT)
 
   test('switching accounts in the wallet updates the displayed balance', async () => {
@@ -403,7 +410,7 @@ describe('wallet balance display', () => {
     mock?.setAccount(SMALL)
     const expected = formatUsdcDisplay(await read(SMALL))
     await waitFor(() => expect(document.querySelector('[data-testid="hero-balance"]')?.textContent).toBe(expected), { timeout: TIMEOUT })
-    expect(screen.queryByText(/holds no USDC on Arc Mainnet/)).toBeNull()
+    expect(screen.queryByText(/No USDC on Arc Mainnet at this address yet/)).toBeNull()
   }, TIMEOUT * 2)
 
   test('the refresh button re-reads the balance with one more request', async () => {

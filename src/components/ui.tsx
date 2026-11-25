@@ -14,10 +14,10 @@ export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-ink hover:bg-accent-hover hover:text-accent-ink',
-  secondary: 'bg-surface-muted text-ink border border-line hover:border-line-strong',
+  primary: 'btn-primary text-accent-ink',
+  secondary: 'bg-surface-muted text-ink border border-line hover:border-line-strong hover:bg-accent-soft',
   ghost: 'bg-transparent text-ink-2 hover:bg-surface-muted',
-  danger: 'bg-danger text-accent-ink hover:opacity-90',
+  danger: 'bg-danger text-white hover:opacity-90',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

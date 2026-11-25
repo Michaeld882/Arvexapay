@@ -11,6 +11,9 @@ const Deposit = lazy(() => import('@/pages/Deposit'))
 const Withdraw = lazy(() => import('@/pages/Withdraw'))
 const Activity = lazy(() => import('@/pages/Activity'))
 const Settings = lazy(() => import('@/pages/Settings'))
+const Circle = lazy(() => import('@/pages/Circle'))
+const CircleBridge = lazy(() => import('@/pages/CircleBridge'))
+const CircleGateway = lazy(() => import('@/pages/CircleGateway'))
 
 const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/': Dashboard,
@@ -21,6 +24,9 @@ const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/withdraw': Withdraw,
   '/activity': Activity,
   '/settings': Settings,
+  '/circle': Circle,
+  '/circle/bridge': CircleBridge,
+  '/circle/gateway': CircleGateway,
 }
 
 function PageFallback() {

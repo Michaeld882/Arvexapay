@@ -28,7 +28,7 @@ function NetworkPill() {
       className="hidden items-center gap-2 rounded-full border border-line bg-surface-muted px-3 py-1.5 text-xs font-semibold text-ink-2 sm:inline-flex"
       title={wrong ? 'Wallet is on another network' : undefined}
     >
-      <span className="size-2 rounded-full" style={{ background: wrong ? 'var(--danger)' : 'var(--success)' }} aria-hidden />
+      <span className="dot-live size-2 rounded-full" style={{ background: wrong ? 'var(--danger)' : 'var(--success)' }} aria-hidden />
       {wrong ? 'Wrong network' : NETWORK_NAME}
     </span>
   )
@@ -40,7 +40,7 @@ function NavLinks({ onNavigate, pillId, stagger = false }: { onNavigate?: () => 
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
       {NAV_ITEMS.map(({ path, label, icon: Icon }, index) => {
-        const active = route === path
+        const active = route === path || (path !== '/' && route.startsWith(`${path}/`))
         return (
           <Link
             key={path}

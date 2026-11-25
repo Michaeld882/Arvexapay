@@ -8,6 +8,7 @@ Built with [Arc Studio](https://studio.arc.io)
 
 - Dashboard with wallet balance, vault balance, quick actions and recent transactions
 - Send, Receive (address and QR code), Deposit, Withdraw and Activity
+- Circle Integration area: USDC on Arc status, native CCTP bridging into Arc from other chains, a Gateway unified USDC balance (kept separate from wallet and vault balances), and payment rails with payment tracking
 - Swap screen that stays disabled ("Swap liquidity is not configured") until a verified provider is registered
 - Light and dark themes that persist after refresh
 - Clear wrong-network warning with a switch action; transactions are blocked off Arc Mainnet (Chain ID 5042)
@@ -26,10 +27,11 @@ bun install
 bun run dev        # start the app
 bun run build      # production build
 bun run check      # lint and typecheck
-bun run test       # app tests (uses the real Arc Mainnet RPC, read only)
+bun run test       # app tests (uses the real Arc Mainnet RPC and Circle services, read only)
 bun run test:rpc   # RPC smoke test
 bun run verify:abi         # frontend ABI vs compiled contract
 bun run verify:deployment  # read-only check of the deployed contract on Arc Mainnet
+bun run verify:circle      # read-only check of USDC on Arc, CCTP and Gateway against Arc Mainnet and Circle
 bun run contracts:build
 bun run contracts:test
 ```
@@ -43,6 +45,12 @@ Copy `.env.example` to `.env`. All values are public and shipped to the browser.
 - `VITE_ARVEXA_CONTRACT_ADDRESS`: address of the deployed Arvexa contract. Leave empty until deployed; the app shows "Contract not configured" and disables the vault.
 - `VITE_ARVEXA_DEPLOY_BLOCK`: optional block the contract was deployed at.
 - `VITE_ARC_RPC_URL`: optional https RPC override for Arc Mainnet.
+- `VITE_CIRCLE_CCTP_ENABLED`, `VITE_CIRCLE_GATEWAY_ENABLED`: optional, turn CCTP bridging or Gateway on or off (default on).
+- `VITE_CIRCLE_CCTP_SPEED`: optional, `FAST` (default) or `SLOW`.
+- `VITE_CIRCLE_CCTP_FORWARDER`: optional, let Circle submit the mint on Arc so no Arc gas is needed (default on).
+- `VITE_CIRCLE_CCTP_SOURCE_CHAINS`: optional comma list of allowed source chains.
+- `VITE_CIRCLE_LARGE_TRANSFER_USDC`: optional large-transfer warning threshold (default 100).
+- `VITE_CPN_API_URL`: optional https URL of your own server for Circle Payments Network. Needs approved access from Circle.
 
 Restart the dev server after changing `.env`.
 

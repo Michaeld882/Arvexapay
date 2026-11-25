@@ -17,7 +17,8 @@
     "test": "bun test tests",
     "test:rpc": "bun run tests/rpc-live.ts",
     "verify:abi": "bun run scripts/verify-arvexa.ts abi",
-    "verify:deployment": "bun run scripts/verify-arvexa.ts onchain"
+    "verify:deployment": "bun run scripts/verify-arvexa.ts onchain",
+    "verify:circle": "bun run scripts/verify-circle.ts"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.19.2",
