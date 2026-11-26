@@ -13,10 +13,18 @@ const TIMEOUT = 40_000
 const OWNER = '0x2222222222222222222222222222222222222222' as Address
 const realFetch = globalThis.fetch
 
+/**
+ * Requests that a test deliberately never answers. They are failed when the test ends: viem keeps one shared
+ * in-flight promise per read (for example the block number), so a request that never settles would stay joined by
+ * every later test in this process and make its chain reads wait forever.
+ */
+const unanswered: Array<() => void> = []
+
 afterEach(async () => {
   cleanup()
   globalThis.fetch = realFetch
   window.fetch = realFetch
+  for (const fail of unanswered.splice(0)) fail()
   if (config.state.status !== 'disconnected') {
     config.setState((state) => ({ ...state, status: 'connected' }))
     await disconnect(config).catch(() => undefined)
@@ -55,7 +63,7 @@ const callsOf = (init?: RequestInit): RpcCall[] => {
 
 describe('connecting the wallet', () => {
   test('the Dashboard is on screen at once, with skeletons, even while every blockchain request is still waiting', async () => {
-    setFetch((() => new Promise(() => undefined)) as unknown as typeof fetch)
+    setFetch((() => new Promise((_resolve, reject) => unanswered.push(() => reject(new Error('The test ended before this request was answered.'))))) as unknown as typeof fetch)
     window.history.replaceState({}, '', '/')
     installMockWallet(OWNER, ARC_CHAIN_ID)
     mount()

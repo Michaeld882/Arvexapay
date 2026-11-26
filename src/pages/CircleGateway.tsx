@@ -6,6 +6,11 @@ import { CIRCLE_CONFIG } from '@/circle/config'
 import { describeCircleError } from '@/circle/errors'
 import { gatewayLock } from '@/circle/locks'
 import { estimateDeposit, estimateSpend, gatewayStore, recheckGatewayRecord, runDeposit, runSpend, type GatewayRecord } from '@/circle/gateway'
+import { GuardianStatus, Pill } from '@/components/GuardianStatus'
+import { gatewayChainReads, gatewayFingerprint, gatewayGuardianPhase, runGatewayPreflight, syncGatewaySubmission, type GatewayPreflightInput } from '@/guardian/gateway'
+import { findInFlightDuplicate } from '@/guardian/lock'
+import type { GuardianReport, GuardianView } from '@/guardian/types'
+import { Check, Clock, ShieldCheck } from 'lucide-react'
 import { useChainUsdcBalance, useDebounced, useGatewayBalance, useLeaveWarning, useWalletAdapter } from '@/circle/hooks'
 import { chainKey, feeLabel, switchWalletChain, type EvmChain, type WalletAdapter } from '@/circle/sdk'
 import { useGatewayChains } from '@/circle/status'
@@ -100,13 +105,24 @@ function useGatewayAction() {
   const queryClient = useQueryClient()
   const busy = gatewayLock.useActive() !== undefined
   const [error, setError] = useState<string | undefined>()
+  const [guardian, setGuardian] = useState<GuardianView>({ status: 'idle' })
   useLeaveWarning(busy)
   const run = useCallback(
-    async (known: readonly EvmChain[], switchTo: EvmChain | undefined, action: (adapter: WalletAdapter) => Promise<GatewayRecord>, back: EvmChain) => {
+    async (known: readonly EvmChain[], switchTo: EvmChain | undefined, action: (adapter: WalletAdapter) => Promise<GatewayRecord>, back: EvmChain, guard?: (adapter: WalletAdapter) => Promise<GuardianReport>) => {
       if (!gatewayLock.tryAcquire('operation')) return
       setError(undefined)
       try {
-        const { provider } = await getAdapter(known)
+        const { provider, adapter: quoting } = await getAdapter(known)
+        if (guard) {
+          // Check the request before anything is signed. A blocked request never reaches the wallet.
+          setGuardian({ status: 'checking' })
+          const report = await guard(quoting)
+          setGuardian({ status: 'done', report })
+          if (report.verdict === 'blocked') {
+            setError(report.reason ?? 'This request did not pass the safety checks. Nothing was sent.')
+            return
+          }
+        }
         // Deposits happen on the source chain: switch first, then build the adapter for that chain.
         if (switchTo) await switchWalletChain(provider, switchTo, known)
         const { adapter } = await getAdapter(known)
@@ -125,7 +141,7 @@ function useGatewayAction() {
     },
     [getAdapter, queryClient],
   )
-  return { run, busy, error }
+  return { run, busy, error, guardian, clearGuardian: () => setGuardian({ status: 'idle' }) }
 }
 
 const STATUS_TEXT: Record<GatewayRecord['kind'], Record<GatewayRecord['state'], { title: string; body: (r: GatewayRecord) => string }>> = {
@@ -143,6 +159,15 @@ const STATUS_TEXT: Record<GatewayRecord['kind'], Record<GatewayRecord['state'], 
   },
 }
 
+/** Monitoring while the request is in flight; Verified only after the chain read-back (the deposit receipt, or the Arc mint). */
+function GatewayGuardianPill({ record }: { record: GatewayRecord }) {
+  const phase = gatewayGuardianPhase(record)
+  if (phase === 'VERIFIED') return <Pill tone="good" icon={ShieldCheck}>Verified</Pill>
+  if (phase === 'CONFIRMED') return <Pill tone="info" icon={Check}>Confirmed, result not verified</Pill>
+  if (phase === 'PENDING' || phase === 'SUBMITTED') return <Pill tone="info" icon={Clock}>Monitoring</Pill>
+  return null
+}
+
 function OperationStatus({ record, onRecheck, disabled }: { record: GatewayRecord; onRecheck: (record: GatewayRecord) => void; disabled: boolean }) {
   const text = STATUS_TEXT[record.kind][record.state]
   const tone = record.state === 'success' ? 'success' : record.state === 'error' ? 'danger' : record.state === 'unconfirmed' ? 'warn' : 'info'
@@ -156,6 +181,9 @@ function OperationStatus({ record, onRecheck, disabled }: { record: GatewayRecor
         ) : undefined
       }
     >
+      <span className="mb-2 block">
+        <GatewayGuardianPill record={record} />
+      </span>
       <span className="flex items-start gap-2">
         {record.state === 'pending' && <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden />}
         <span>
@@ -203,10 +231,34 @@ function Actions({ address, arc, chains, onRecord }: { address: Address; arc: Ev
     },
   })
 
+  const preflightInput = useMemo<GatewayPreflightInput>(
+    () => ({ kind: mode, owner: address, chain: mode === 'deposit' ? chain : undefined, arc, chains, amount: debounced, recipient: address }),
+    [mode, address, chain, arc, chains, debounced],
+  )
+  const preview = useQuery({
+    queryKey: ['circle', 'gateway-guardian', mode, chainKey(chain), debounced, address],
+    enabled: ready && debounced === amountText && amountText !== '',
+    staleTime: 20_000,
+    retry: false,
+    queryFn: async (): Promise<GuardianReport> => {
+      const { adapter } = await getAdapter(chains)
+      return runGatewayPreflight(preflightInput, gatewayChainReads({ kind: mode, adapter, chain: preflightInput.chain, amount: debounced, recipient: address, owner: address }))
+    },
+  })
+  const guardianView: GuardianView = preview.data ? { status: 'done', report: preview.data } : ready && (preview.isFetching || preview.isPending) && amountText ? { status: 'checking' } : action.guardian
+  const guardianBlocked = preview.data?.verdict === 'blocked' && !preview.data.rpcFailure
+
   const submit = () => {
-    if (!ready || action.busy) return
-    if (mode === 'deposit') void action.run(chains, chain, (adapter) => runDeposit({ owner: address, adapter, chain, amount: amountText, onUpdate: onRecord }), arc)
-    else void action.run(chains, undefined, (adapter) => runSpend({ owner: address, adapter, recipient: address, amount: amountText, onUpdate: onRecord }), arc)
+    if (!ready || action.busy || guardianBlocked) return
+    const input: GatewayPreflightInput = { ...preflightInput, amount: amountText }
+    const guard = async (adapter: WalletAdapter): Promise<GuardianReport> => {
+      // An identical request that is still in flight blocks a second one, including after a reload.
+      const earlier = findInFlightDuplicate(address, gatewayFingerprint({ owner: address, kind: mode, chainKey: input.chain ? chainKey(input.chain) : undefined, amount: amountText }))
+      if (earlier) return { verdict: 'blocked', checks: [], simulated: false, reason: 'An identical request is already running or waiting for your wallet. Wait for it to finish instead of sending it again.', rpcFailure: false, duplicateOf: earlier.hash, checkedAt: Date.now() }
+      return runGatewayPreflight(input, gatewayChainReads({ kind: mode, adapter, chain: input.chain, amount: amountText, recipient: address, owner: address, fresh: true }))
+    }
+    if (mode === 'deposit') void action.run(chains, chain, (adapter) => runDeposit({ owner: address, adapter, chain, amount: amountText, onUpdate: onRecord }), arc, guard)
+    else void action.run(chains, undefined, (adapter) => runSpend({ owner: address, adapter, recipient: address, amount: amountText, onUpdate: onRecord }), arc, guard)
   }
 
   return (
@@ -257,8 +309,9 @@ function Actions({ address, arc, chains, onRecord }: { address: Address; arc: Ev
       <Banner tone="warn" title="Real USDC moves">
         {mode === 'deposit' ? 'This sends USDC to Circle Gateway on the chosen chain. It counts in your unified balance after that chain finalizes.' : 'This burns USDC from your Gateway balance and mints it on Arc Mainnet. It cannot be undone.'}
       </Banner>
+      {amountText && guardianView.status !== 'idle' && !action.busy && <GuardianStatus view={guardianView} flowPhase="review" hasHash={false} onRecheck={() => void preview.refetch()} />}
       {action.error && <Banner tone="danger" title="Request stopped">{action.error} Nothing was assumed to have succeeded.</Banner>}
-      <Button className="w-full" disabled={!ready || action.busy} loading={action.busy} onClick={submit}>
+      <Button className="w-full" disabled={!ready || action.busy || guardianBlocked} loading={action.busy} onClick={submit}>
         {action.busy ? 'Waiting for wallet and Circle' : mode === 'deposit' ? 'Top Up Gateway' : 'Spend to Arc'}
       </Button>
       {reason && <p className="text-center text-xs text-muted">{reason}</p>}
@@ -312,6 +365,8 @@ function GatewayContent({ address }: { address: Address }) {
     (record: GatewayRecord) => {
       setCurrentId(record.id)
       gatewayStore.upsert(address, record)
+      // The Guardian registry follows the record.
+      syncGatewaySubmission(address, record)
     },
     [address],
   )

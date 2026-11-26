@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount, useSendTransaction, useWriteContract } from 'wagmi'
 import { getAccount } from 'wagmi/actions'
 import { useQueryClient } from '@tanstack/react-query'
@@ -10,6 +10,11 @@ import type { TxPlan } from '@/lib/plan'
 import { waitForReceipt } from '@/lib/rpc'
 import { updateLocalTxStatus, upsertLocalTx } from '@/lib/txLog'
 import { setTxMeta } from '@/lib/txMeta'
+import { fingerprintOf } from '@/guardian/checks'
+import { expectationsFor } from '@/guardian/expect'
+import { beginSubmission, dropSubmission, txLock, updateSubmission } from '@/guardian/lock'
+import { runPreflight } from '@/guardian/preflight'
+import type { GuardianReport, GuardianView } from '@/guardian/types'
 
 /**
  * idle      nothing in progress
@@ -38,7 +43,19 @@ export interface LastConfirmedTx {
   resultText: string
 }
 
+/** What the screens read: the flow state plus what the Guardian found before signing. */
+export interface FlowView extends FlowState {
+  guardian: GuardianView
+}
+
 const IDLE: FlowState = { phase: 'idle', plan: null }
+const NO_GUARDIAN: GuardianView = { status: 'idle' }
+
+/** A report for a check that could not run at all. It blocks signing and says why. */
+function crashedReport(err: unknown): GuardianReport {
+  const app = classifyError(err)
+  return { verdict: 'blocked', checks: [], simulated: false, reason: 'The safety checks could not run, so nothing was sent. Try again.', technical: app.detail, rpcFailure: true, checkedAt: Date.now() }
+}
 
 interface TxFlowOptions {
   /** Called once after a transaction is confirmed and its onchain events are verified. */
@@ -46,12 +63,15 @@ interface TxFlowOptions {
 }
 
 export function useTxFlow(options: TxFlowOptions = {}) {
-  const { address } = useAccount()
+  const { address, chainId: walletChainId } = useAccount()
   const { writeContractAsync } = useWriteContract()
   const { sendTransactionAsync } = useSendTransaction()
   const queryClient = useQueryClient()
   const [state, setState] = useState<FlowState>(IDLE)
   const [lastConfirmed, setLastConfirmed] = useState<LastConfirmedTx | null>(null)
+  const [guardian, setGuardian] = useState<GuardianView>(NO_GUARDIAN)
+  const submissionRef = useRef<string | undefined>(undefined)
+  const checkSeq = useRef(0)
   const planRef = useRef<TxPlan | null>(null)
   const hashRef = useRef<Hex | undefined>(undefined)
   // Synchronous lock: blocks double clicks and duplicate submissions before React re-renders.
@@ -61,26 +81,69 @@ export function useTxFlow(options: TxFlowOptions = {}) {
     onSuccessRef.current = options.onSuccess
   })
 
-  const open = useCallback((plan: TxPlan) => {
-    if (lock.current) return
-    planRef.current = plan
-    hashRef.current = undefined
-    setState({ phase: 'review', plan })
-  }, [])
+  /** Reads the chain and simulates the exact transaction. Sends nothing, opens no wallet prompt. */
+  const check = useCallback(
+    async (plan: TxPlan, fresh = false): Promise<GuardianReport> => {
+      const seq = ++checkSeq.current
+      setGuardian({ status: 'checking' })
+      let report: GuardianReport
+      try {
+        report = await runPreflight({ plan, account: address, walletChainId: getAccount(config).chainId, fresh })
+      } catch (err) {
+        report = crashedReport(err)
+      }
+      if (seq === checkSeq.current && planRef.current === plan) setGuardian({ status: 'done', report })
+      return report
+    },
+    [address],
+  )
+
+  const open = useCallback(
+    (plan: TxPlan) => {
+      if (lock.current) return
+      planRef.current = plan
+      hashRef.current = undefined
+      submissionRef.current = undefined
+      setState({ phase: 'review', plan })
+      void check(plan)
+    },
+    [check],
+  )
 
   const reset = useCallback(() => {
     if (lock.current) return
     planRef.current = null
     hashRef.current = undefined
+    submissionRef.current = undefined
+    checkSeq.current += 1
+    setGuardian(NO_GUARDIAN)
     setState(IDLE)
   }, [])
+
+  /** Run the checks again, for example after switching network or when the network was unreachable. */
+  const recheckGuardian = useCallback(() => {
+    const plan = planRef.current
+    if (!plan || lock.current || hashRef.current) return
+    void check(plan, true)
+  }, [check])
+
+  // The wallet changed network while the review screen was open: the earlier answer no longer applies.
+  const lastChain = useRef(walletChainId)
+  useEffect(() => {
+    if (lastChain.current === walletChainId) return
+    lastChain.current = walletChainId
+    recheckGuardian()
+  }, [walletChainId, recheckGuardian])
 
   const finalize = useCallback(
     async (hash: Hex, plan: TxPlan, owner: string) => {
       setState({ phase: 'confirming', plan, hash })
+      if (submissionRef.current) updateSubmission(owner, submissionRef.current, { state: 'PENDING', hash })
       const receipt = await waitForReceipt(hash)
       const finalHash = receipt.transactionHash
+      const settleSubmission = (state: 'CONFIRMED' | 'VERIFIED' | 'FAILED') => submissionRef.current && updateSubmission(owner, submissionRef.current, { state })
       if (receipt.status !== 'success') {
+        settleSubmission('FAILED')
         updateLocalTxStatus(owner, hash, 'failed')
         throw new AppError('reverted', `Transaction ${finalHash} reverted (status ${receipt.status})`)
       }
@@ -89,9 +152,11 @@ export function useTxFlow(options: TxFlowOptions = {}) {
         const result = plan.verify(receipt)
         resultText = typeof result === 'string' ? result : undefined
       } catch (err) {
+        settleSubmission('CONFIRMED')
         updateLocalTxStatus(owner, hash, 'unverified')
         throw err
       }
+      settleSubmission('VERIFIED')
       updateLocalTxStatus(owner, hash, 'success')
       setState({ phase: 'success', plan, hash: finalHash, resultText })
       setLastConfirmed({ hash: finalHash, title: plan.title, resultText: resultText ?? plan.successText })
@@ -117,11 +182,25 @@ export function useTxFlow(options: TxFlowOptions = {}) {
   const submit = useCallback(async () => {
     const plan = planRef.current
     if (!plan || lock.current) return
+    // Taken before any await: a double click, a re-render or a second screen cannot start a second submission.
     lock.current = true
+    let release: (() => void) | undefined
     try {
       if (!address) throw new AppError('wallet_unavailable', 'No connected account')
       if (getAccount(config).chainId !== ARC_CHAIN_ID) throw new AppError('wrong_network')
+      const acquired = txLock.tryAcquire(address, fingerprintOf(address, plan))
+      if (!acquired.ok) {
+        const message = acquired.reason === 'duplicate' ? 'This exact transaction is already being sent. Wait for it to finish.' : 'Another transaction from this wallet is waiting for your wallet. Finish or reject it first.'
+        setGuardian({ status: 'done', report: { verdict: 'blocked', checks: [], simulated: false, reason: message, rpcFailure: false, checkedAt: Date.now() } })
+        return
+      }
+      release = acquired.release
+      // The last look before the wallet opens: fresh reads, and the exact call simulated against the chain right now.
+      const report = await check(plan, true)
+      if (planRef.current !== plan || report.verdict === 'blocked') return
       setState({ phase: 'signing', plan })
+      const submission = beginSubmission(address, { fingerprint: fingerprintOf(address, plan), kind: plan.kind, title: plan.title, expect: expectationsFor(address, plan) })
+      submissionRef.current = submission.id
       const { call } = plan
       const hash =
         call.type === 'contract'
@@ -134,6 +213,7 @@ export function useTxFlow(options: TxFlowOptions = {}) {
             })
           : await sendTransactionAsync({ to: call.to, data: call.data, value: call.value, chainId: ARC_CHAIN_ID })
       hashRef.current = hash
+      updateSubmission(address, submission.id, { state: 'SUBMITTED', hash })
       upsertLocalTx(address, {
         hash,
         kind: plan.kind,
@@ -146,11 +226,14 @@ export function useTxFlow(options: TxFlowOptions = {}) {
       if (plan.meta) setTxMeta(address, hash, plan.meta)
       await finalize(hash, plan, address)
     } catch (err) {
+      // No hash means the wallet never submitted anything (rejected, or failed before sending): forget the attempt.
+      if (!hashRef.current && address && submissionRef.current) dropSubmission(address, submissionRef.current)
       handleError(err, plan)
     } finally {
+      release?.()
       lock.current = false
     }
-  }, [address, finalize, handleError, sendTransactionAsync, writeContractAsync])
+  }, [address, check, finalize, handleError, sendTransactionAsync, writeContractAsync])
 
   /** Re-checks a submitted transaction. It never sends anything again. */
   const recheck = useCallback(async () => {
@@ -167,8 +250,11 @@ export function useTxFlow(options: TxFlowOptions = {}) {
     }
   }, [address, finalize, handleError])
 
+  const view = useMemo<FlowView>(() => ({ ...state, guardian }), [state, guardian])
+
   return {
-    state,
+    state: view,
+    recheckGuardian,
     lastConfirmed,
     isBusy: state.phase === 'signing' || state.phase === 'confirming',
     open,

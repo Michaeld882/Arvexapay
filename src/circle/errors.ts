@@ -1,10 +1,14 @@
 import { classifyError } from '@/lib/errors'
+import { FEE_TOO_SMALL_MESSAGE, isMaxFeeRevert } from '@/circle/cctpFee'
 
 /**
  * Friendly text for an error thrown by the Circle SDK or the wallet. Known wallet and RPC failures use the app's
  * shared messages; an SDK error keeps its own message, which says what Circle rejected (route, amount, fee).
  */
 export function describeCircleError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  // The burn contract's own revert: the fee was not below the amount. Say what to do instead of quoting the revert.
+  if (isMaxFeeRevert(raw)) return FEE_TOO_SMALL_MESSAGE
   const app = classifyError(err)
   if (app.kind !== 'unknown') return app.message
   const message = err instanceof Error ? err.message : String(err)

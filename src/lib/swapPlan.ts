@@ -29,6 +29,7 @@ export function buildSwapApprovePlan(owner: Address, request: SwapRequest, spend
     ],
     call: { type: 'contract', address: tokenIn.address, abi: erc20Abi, functionName: 'approve', args: [spender, amountIn] },
     amount: amountIn,
+    guard: { type: 'swap-approve', token: tokenIn.address, spender },
     usdcOutflow: 0n,
     verify: (receipt) => {
       const ok = parseEventLogs({ abi: erc20Abi, eventName: 'Approval', logs: receipt.logs }).some(
@@ -58,6 +59,7 @@ export function buildPermit2ApprovePlan(owner: Address, request: SwapRequest, pe
     ],
     call: { type: 'contract', address: permit2, abi: permit2Abi, functionName: 'approve', args: [tokenIn.address, router, amountIn, expiration] },
     amount: amountIn,
+    guard: { type: 'permit2-approve', token: tokenIn.address, permit2, router, expiration },
     usdcOutflow: 0n,
     verify: (receipt) => {
       const ok = parseEventLogs({ abi: permit2Abi, eventName: 'Approval', logs: receipt.logs }).some(
@@ -92,6 +94,19 @@ export function buildSwapPlan(request: SwapRequest, quote: SwapQuote, tx: SwapTr
     rows,
     call: { type: 'raw', to: tx.to, data: tx.data, value: tx.value },
     amount: amountIn,
+    guard: {
+      type: 'swap',
+      router: tx.to,
+      tokenIn: tokenIn.address,
+      tokenOut: tokenOut.address,
+      amountIn,
+      amountOut: quote.amountOut,
+      minAmountOut: quote.minAmountOut,
+      slippageBps: request.slippageBps,
+      priceImpact: quote.priceImpact,
+      deadline: tx.deadline ?? quote.deadline,
+      quotedAt: Date.now(),
+    },
     usdcOutflow: isAddressEqual(tokenIn.address, USDC.address) ? amountIn : 0n,
     verify: (receipt) => {
       const transfers = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: receipt.logs })

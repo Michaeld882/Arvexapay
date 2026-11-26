@@ -2,17 +2,23 @@ import { useMemo, useState } from 'react'
 import { ArrowDown } from 'lucide-react'
 import type { Address } from 'viem'
 import { NETWORK_NAME, explorerTxUrl } from '@/chain'
+import { BridgeTracker } from '@/components/BridgeTracker'
+import { GuardianStatus, Pill } from '@/components/GuardianStatus'
+import { cctpGuardianPhase } from '@/guardian/cctp'
 import { canCheckArrival, findUnsettledDuplicate, isResumable, recoveryAdvice, transferStore, type TransferRecord } from '@/circle/cctp'
+import { checkBurnFee } from '@/circle/cctpFee'
 import { CIRCLE_CONFIG, type TransferSpeed } from '@/circle/config'
-import { useBridgeFlow, useChainUsdcBalance, useTransferQuote } from '@/circle/hooks'
+import { useBridgeFlow, useCctpGuardianPreview, useChainUsdcBalance, useTransferQuote } from '@/circle/hooks'
 import { chainKey, type EvmChain } from '@/circle/sdk'
 import { useCctpChains } from '@/circle/status'
 import { ExternalTx, FeeRows, StepList } from '@/circle/ui'
 import { ConnectGate } from '@/components/ConnectGate'
 import { AmountInput } from '@/components/Inputs'
 import { Banner, Button, Card, PageHeader, Row, Skeleton, cx } from '@/components/ui'
+import { Check, Clock, ShieldCheck } from 'lucide-react'
 import { classifyError } from '@/lib/errors'
 import { formatTimestamp, shortAddress } from '@/lib/format'
+import type { GuardianView } from '@/guardian/types'
 import { checkAmount } from '@/lib/validate'
 import { formatUsdc } from '@/onchain-money'
 
@@ -54,6 +60,8 @@ function TransferCard({ record, onResume, onRecheck, onDismiss, busy, runningId 
         <span className={cx('rounded-full px-2.5 py-1 text-[11px] font-semibold', tag.className)}>{tag.label}</span>
       </div>
       <StepList record={record} />
+      <TransferGuardianPill record={record} interrupted={interrupted} />
+      {record.steps.some((item) => item.state !== 'idle') && <BridgeTracker record={record} />}
       {record.state === 'success' && record.mintHash && (
         <Banner tone="success" title="USDC minted on Arc">
           <span className="block">
@@ -95,6 +103,15 @@ function TransferCard({ record, onResume, onRecheck, onDismiss, busy, runningId 
   )
 }
 
+/** The Guardian's state for a transfer: watching it while it runs, and Verified only once Arc shows the mint. */
+function TransferGuardianPill({ record, interrupted }: { record: TransferRecord; interrupted: boolean }) {
+  const phase = cctpGuardianPhase(record)
+  if (phase === 'VERIFIED') return <div aria-label="Guardian status"><Pill tone="good" icon={ShieldCheck}>Verified</Pill></div>
+  if (phase === 'CONFIRMED') return <div aria-label="Guardian status"><Pill tone="info" icon={Check}>Confirmed, result not verified</Pill></div>
+  if ((phase === 'PENDING' || phase === 'SUBMITTED') && !interrupted) return <div aria-label="Guardian status"><Pill tone="info" icon={Clock}>Monitoring</Pill></div>
+  return null
+}
+
 /** A transfer whose burn happened (or may have) is kept on screen so its hashes are never lost. */
 function burnedOrActive(record: TransferRecord): boolean {
   return record.steps.some((step) => step.name === 'burn' && (step.state === 'success' || Boolean(step.txHash))) || record.state === 'confirming'
@@ -125,7 +142,14 @@ function BridgeForm({ address }: { address: Address }) {
   const amountText = value.ok ? formatUsdc(value.raw) : ''
   // The same transfer must never burn twice: an earlier burn of this amount that has not settled blocks a new one.
   const duplicate = value.ok && source ? findUnsettledDuplicate(records, { sourceChain: chainKey(source), amount: amountText }) : undefined
-  const canStart = ready && !duplicate
+  const preview = useCctpGuardianPreview(chains.data, address, { source, amount: amountText, recipient: address, speed, useForwarder, ready })
+  const guardianView: GuardianView = preview.data ? { status: 'done', report: preview.data } : ready && (preview.isFetching || preview.isPending) ? { status: 'checking' } : flow.guardian
+  const guardianBlocked = preview.data?.verdict === 'blocked' && !preview.data.rpcFailure
+  const quote = useTransferQuote(chains.data, { source, amount: amountText, recipient: address, speed, useForwarder, ready })
+  // The burn only works while maxFee < amount. Both are 6-decimal base units; a quote made for another amount is ignored.
+  const feeCheck = value.ok && quote.data?.maxFee !== undefined && quote.data.amount === amountText ? checkBurnFee(value.raw, quote.data.maxFee) : undefined
+  const feeTooSmall = feeCheck !== undefined && !feeCheck.ok
+  const canStart = ready && !duplicate && !feeTooSmall && !guardianBlocked
   const reason = flow.isBusy
     ? 'A transfer is running. Keep this tab open until it finishes.'
     : !amount
@@ -136,9 +160,10 @@ function BridgeForm({ address }: { address: Address }) {
           ? `Your USDC balance on ${source?.name ?? 'the source chain'} could not be read, so bridging is paused. Try again in a moment.`
           : duplicate
             ? `A ${amountText} USDC transfer from ${source?.name} was already burned and has not finished. Resume it, check Arc for the mint, or wait for it to settle before starting another.`
-            : null
+            : feeCheck && !feeCheck.ok
+              ? feeCheck.message
+              : null
 
-  const quote = useTransferQuote(chains.data, { source, amount: amountText, recipient: address, speed, useForwarder, ready })
   const quoteLines = quote.data ? [...quote.data.fees, ...quote.data.gas] : undefined
   const large = value.ok && Number(amountText) > CIRCLE_CONFIG.largeTransferUsdc
   const active = records.find((record) => record.id === flow.busyId)
@@ -179,13 +204,16 @@ function BridgeForm({ address }: { address: Address }) {
         </div>
         <AmountInput
           value={amount}
-          onChange={setAmount}
+          onChange={(next) => {
+            setAmount(next)
+            flow.clearError()
+          }}
           balance={balance.data}
           balanceLabel={`${source.name} balance`}
           balanceLoading={balance.isPending}
           balanceUnavailable={balance.isError}
           disabled={flow.isBusy}
-          error={amountError}
+          error={amountError ?? (feeCheck && !feeCheck.ok ? feeCheck.message : null)}
         />
         <div className="flex items-center gap-3 text-xs text-muted" aria-hidden>
           <span className="h-px flex-1 bg-line" />
@@ -222,13 +250,16 @@ function BridgeForm({ address }: { address: Address }) {
           <Row label="Route">{source.name} to {NETWORK_NAME}</Row>
           <Row label="Amount">{amountText ? `${amountText} USDC` : '—'}</Row>
           <Row label="Arrival">{speedTime}</Row>
-          <FeeRows lines={quoteLines} loading={ready && quote.isFetching} error={quote.isError ? 'Circle could not quote this route right now. You can still bridge; the fee is shown as the steps run.' : undefined} />
+          <FeeRows lines={quoteLines} loading={ready && quote.isFetching} error={quote.isError ? 'Circle could not quote this route right now. The fee is checked again before your wallet is asked to sign anything.' : undefined} />
         </dl>
         <Banner tone="warn" title="Real USDC moves">
           This burns USDC on {source.name} and mints it on Arc Mainnet. It cannot be undone.
           {!useForwarder && ' You also need a little USDC on Arc to pay gas for the mint.'}
         </Banner>
         {large && <Banner tone="warn" title="Large transfer">This is more than {CIRCLE_CONFIG.largeTransferUsdc} USDC. Check the chains and amount, then consider a small test transfer first.</Banner>}
+        {amountText && guardianView.status !== 'idle' && !flow.isBusy && (
+          <GuardianStatus view={guardianView} flowPhase="review" hasHash={false} onRecheck={() => void preview.refetch()} />
+        )}
         {flow.startError && !active && <Banner tone="danger" title="Could not start the transfer">{flow.startError}</Banner>}
         <Button className="w-full" disabled={!canStart || flow.isBusy} loading={flow.isBusy} onClick={bridge}>
           {flow.isBusy ? 'Transfer in progress' : amountText ? `Bridge ${amountText} USDC to Arc` : 'Enter an amount'}

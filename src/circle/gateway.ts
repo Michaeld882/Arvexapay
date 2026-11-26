@@ -3,7 +3,7 @@ import { CIRCLE_CONFIG } from '@/circle/config'
 import { describeCircleError } from '@/circle/errors'
 import { createRecordStore } from '@/circle/store'
 import { chainKey, explorerTxUrl, getAppKit, loadGatewayChains, type EvmChain, type WalletAdapter } from '@/circle/sdk'
-import { findArcMintSince, verifyArcMintByHash, verifyTxOnChain, waitForArcArrival } from '@/circle/arrival'
+import { findArcMintSince, verifyArcMintByHash, verifyGatewayDeposit, waitForArcArrival } from '@/circle/arrival'
 import { explorerTxUrl as arcTxUrl } from '@/chain'
 import { parseUsdc } from '@/onchain-money'
 import { sleep, backoffDelay } from '@/lib/backoff'
@@ -63,6 +63,12 @@ export interface GatewayRecord {
   txHash?: string
   explorerUrl?: string
   error?: string
+  /**
+   * True only when the expected result was read back from the chain: a deposit's USDC transfer into the Gateway
+   * contract for exactly this amount, or the Arc mint of a spend. A confirmed receipt alone leaves this unset, and
+   * records saved before this field existed are treated the same way.
+   */
+  verified?: boolean
 }
 
 export const gatewayStore = createRecordStore<GatewayRecord>('gateway')
@@ -97,14 +103,16 @@ const STALE = 'The chain does not show this transaction yet. Your funds are safe
 
 async function confirmDeposit(record: GatewayRecord, chain: EvmChain, attempts = 5): Promise<GatewayRecord> {
   if (!record.txHash) return { ...record, state: 'unconfirmed', error: STALE }
-  let outcome: Awaited<ReturnType<typeof verifyTxOnChain>> = 'unavailable'
+  const wallet = (chain as { gateway?: { contracts?: { v1?: { wallet?: string } } } }).gateway?.contracts?.v1?.wallet
+  let outcome: Awaited<ReturnType<typeof verifyGatewayDeposit>> = { state: 'unavailable' }
   for (let attempt = 0; attempt < attempts; attempt++) {
-    outcome = await verifyTxOnChain({ rpcEndpoints: chain.rpcEndpoints, hash: record.txHash as `0x${string}` })
-    if (outcome !== 'unavailable') break
+    outcome = await verifyGatewayDeposit({ rpcEndpoints: chain.rpcEndpoints, hash: record.txHash as `0x${string}`, owner: record.owner, token: chain.usdcAddress as Address, wallet: wallet as Address | undefined, amount: parseUsdc(record.amount) })
+    if (outcome.state !== 'unavailable') break
     await sleep(backoffDelay(attempt + 1))
   }
-  if (outcome === 'success') return { ...record, state: 'success', error: undefined }
-  if (outcome === 'reverted') return { ...record, state: 'error', error: `The deposit transaction reverted on ${chain.name}, so no USDC moved into Gateway.` }
+  // Confirmed by the chain. `verified` says whether the expected transfer into Gateway was also found in the receipt.
+  if (outcome.state === 'success') return { ...record, state: 'success', error: undefined, verified: outcome.verified }
+  if (outcome.state === 'reverted') return { ...record, state: 'error', error: `The deposit transaction reverted on ${chain.name}, so no USDC moved into Gateway.`, verified: false }
   return { ...record, state: 'unconfirmed', error: `${chain.name} could not be read to confirm the deposit. ${STALE}` }
 }
 
@@ -119,7 +127,7 @@ async function confirmSpend(record: GatewayRecord): Promise<GatewayRecord> {
     }
     return findArcMintSince({ recipient: record.owner, maxAmount, sinceMs: record.createdAt })
   }, 4)
-  if (proof.state === 'verified') return { ...record, state: 'success', error: undefined, txHash: proof.hash, explorerUrl: arcTxUrl(proof.hash) }
+  if (proof.state === 'verified') return { ...record, state: 'success', error: undefined, txHash: proof.hash, explorerUrl: arcTxUrl(proof.hash), verified: true }
   return { ...record, state: 'unconfirmed', error: proof.state === 'unavailable' ? `Arc Mainnet could not be read to confirm the mint. ${STALE}` : `${proof.reason} ${STALE}` }
 }
 

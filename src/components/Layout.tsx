@@ -7,6 +7,7 @@ import { Logo } from '@/components/Logo'
 import { NAV_ITEMS } from '@/components/nav'
 import { cx } from '@/components/ui'
 import { NetworkBanner } from '@/components/NetworkBanner'
+import { RecoveryNotice } from '@/components/RecoveryNotice'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { TopProgress } from '@/components/TopProgress'
 import { WalletButton } from '@/components/WalletButton'
@@ -118,6 +119,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </aside>
         <main className="min-w-0 max-w-2xl flex-1">
           <NetworkBanner />
+          <RecoveryNotice />
           {children}
         </main>
       </div>

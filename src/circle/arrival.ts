@@ -1,4 +1,4 @@
-import { createPublicClient, erc20Abi, fallback, http, isAddressEqual, parseAbiItem, parseEventLogs, zeroAddress, type Address, type Hex } from 'viem'
+import { createPublicClient, erc20Abi, fallback, http, isAddressEqual, parseAbiItem, parseEventLogs, zeroAddress, type Address, type Hex, type TransactionReceipt } from 'viem'
 import { USDC } from '@/chain'
 import { backoffDelay, sleep } from '@/lib/backoff'
 import { getArcClient } from '@/lib/rpc'
@@ -19,8 +19,8 @@ const transferEvent = parseAbiItem('event Transfer(address indexed from, address
 const MINT_SCAN_BLOCKS = 4_999n
 const CLOCK_SKEW_SECONDS = 120
 
-/** Reads one Arc transaction and checks that it credited USDC to the recipient. `maxAmount` is a raw 6-decimal ceiling. */
-export async function verifyArcMintByHash(input: { hash: Hex; recipient: Address; maxAmount: bigint }): Promise<ArrivalResult> {
+/** Reads one Arc transaction and checks that it credited USDC to the recipient. `maxAmount` is a raw 6-decimal ceiling; `minAmount`, when known, is the least this transfer can credit after fees. */
+export async function verifyArcMintByHash(input: { hash: Hex; recipient: Address; maxAmount: bigint; minAmount?: bigint }): Promise<ArrivalResult> {
   try {
     const receipt = await getArcClient().getTransactionReceipt({ hash: input.hash })
     if (receipt.status !== 'success') return { state: 'not_found', reason: 'The mint transaction on Arc reverted.' }
@@ -29,6 +29,7 @@ export async function verifyArcMintByHash(input: { hash: Hex; recipient: Address
       .reduce((sum, log) => sum + log.args.value, 0n)
     if (credited <= 0n) return { state: 'not_found', reason: 'The transaction succeeded but it did not credit USDC to your address.' }
     if (credited > input.maxAmount) return { state: 'not_found', reason: 'The credited amount is larger than the amount you bridged, so it is not this transfer.' }
+    if (input.minAmount !== undefined && credited < input.minAmount) return { state: 'not_found', reason: 'The credited amount is smaller than this transfer can deliver after fees, so it is not this transfer.' }
     return { state: 'verified', hash: input.hash, received: credited }
   } catch {
     return { state: 'unavailable' }
@@ -43,7 +44,7 @@ const SCAN_GAP_MS = 1_000
  * to the recipient on Arc that happened after the transfer started and is not larger than the amount. It scans back
  * in 5,000-block windows, paced like the activity scan, until it passes the moment the transfer started.
  */
-export async function findArcMintSince(input: { recipient: Address; maxAmount: bigint; sinceMs: number }): Promise<ArrivalResult> {
+export async function findArcMintSince(input: { recipient: Address; maxAmount: bigint; sinceMs: number; minAmount?: bigint }): Promise<ArrivalResult> {
   const none: ArrivalResult = { state: 'not_found', reason: 'No mint to your address on Arc since this transfer started.' }
   try {
     const client = getArcClient()
@@ -57,7 +58,7 @@ export async function findArcMintSince(input: { recipient: Address; maxAmount: b
       const logs = await client.getLogs({ address: USDC.address, event: transferEvent, args: { from: zeroAddress, to: input.recipient }, fromBlock: from, toBlock: to })
       for (const log of [...logs].reverse()) {
         const value = log.args.value ?? 0n
-        if (value <= 0n || value > input.maxAmount || log.transactionHash === null || log.blockNumber === null) continue
+        if (value <= 0n || value > input.maxAmount || (input.minAmount !== undefined && value < input.minAmount) || log.transactionHash === null || log.blockNumber === null) continue
         const block = await client.getBlock({ blockNumber: log.blockNumber })
         if (block.timestamp < sinceSeconds) return none
         return { state: 'verified', hash: log.transactionHash, received: value }
@@ -92,5 +93,35 @@ export async function verifyTxOnChain(input: { rpcEndpoints: readonly string[]; 
     return receipt.status === 'success' ? 'success' : 'reverted'
   } catch {
     return 'unavailable'
+  }
+}
+
+/** True only when the logs hold a USDC Transfer from the owner into the Gateway wallet contract for exactly the amount. */
+export function gatewayDepositInReceipt(logs: TransactionReceipt['logs'], input: { owner: Address; token: Address; wallet: Address | undefined; amount: bigint }): boolean {
+  const wallet = input.wallet
+  if (wallet === undefined) return false
+  return parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs }).some(
+    (log) => isAddressEqual(log.address, input.token) && isAddressEqual(log.args.from, input.owner) && isAddressEqual(log.args.to, wallet) && log.args.value === input.amount,
+  )
+}
+
+export type GatewayDepositOutcome =
+  | { state: 'success'; verified: boolean }
+  | { state: 'reverted' }
+  | { state: 'unavailable' }
+
+/**
+ * Reads a Gateway deposit's receipt on its source chain. `verified` is true only when the receipt holds a USDC
+ * Transfer from the owner into the Gateway wallet contract for exactly the deposited amount. A successful receipt
+ * without that transfer is still `success` (the chain confirmed it) but not verified.
+ */
+export async function verifyGatewayDeposit(input: { rpcEndpoints: readonly string[]; hash: Hex; owner: Address; token: Address; wallet: Address | undefined; amount: bigint }): Promise<GatewayDepositOutcome> {
+  try {
+    const client = createPublicClient({ transport: fallback(input.rpcEndpoints.map((url) => http(url, { timeout: 10_000 }))) })
+    const receipt = await client.getTransactionReceipt({ hash: input.hash })
+    if (receipt.status !== 'success') return { state: 'reverted' }
+    return { state: 'success', verified: gatewayDepositInReceipt(receipt.logs, input) }
+  } catch {
+    return { state: 'unavailable' }
   }
 }

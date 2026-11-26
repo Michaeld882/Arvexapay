@@ -3,6 +3,7 @@ import type { Address } from 'viem'
 import { ARC_CHAIN_ID } from '@/chain'
 import type { PlannedCall } from '@/lib/plan'
 import { getArcClient } from '@/lib/rpc'
+import { dedupedRead } from '@/guardian/retry'
 import { Amount, gasTokenDecimalsFor, gasTokenToUsdc } from '@/onchain-money'
 
 export interface FeeEstimate {
@@ -32,6 +33,19 @@ async function estimate(call: PlannedCall, account: Address): Promise<FeeEstimat
   return { gas: gasLimit, feeUsdc: truncated + 1n }
 }
 
+const callKey = (call: PlannedCall, account: Address): string =>
+  call.type === 'contract'
+    ? `fee:${account}:${call.address}:${call.functionName}:${call.args.map((arg) => String(arg)).join(',')}`
+    : `fee:${account}:${call.to}:${call.data}:${call.value}`
+
+/**
+ * The fee estimate, shared: the review screen and the Guardian ask for the same estimate at the same moment, so they
+ * share one request. `fresh` skips the short cache for the final check right before signing.
+ */
+export function estimateFee(call: PlannedCall, account: Address, options: { fresh?: boolean } = {}): Promise<FeeEstimate> {
+  return dedupedRead(callKey(call, account), 15_000, () => estimate(call, account), { fresh: options.fresh })
+}
+
 /** Simulates the call (so reverts surface before signing) and prices the network fee. */
 export function useFeeEstimate(call: PlannedCall | null, account: Address | undefined) {
   const argsKey = !call ? '' : call.type === 'contract' ? call.args.map((arg) => String(arg)).join(',') : `${call.data}:${call.value}`
@@ -40,6 +54,6 @@ export function useFeeEstimate(call: PlannedCall | null, account: Address | unde
     enabled: Boolean(call && account),
     staleTime: 20_000,
     gcTime: 60_000,
-    queryFn: () => estimate(call as PlannedCall, account as Address),
+    queryFn: () => estimateFee(call as PlannedCall, account as Address),
   })
 }

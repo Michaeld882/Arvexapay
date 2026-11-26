@@ -18,6 +18,8 @@ Built with [Arc Studio](https://studio.arc.io)
 - Dashboard with wallet balance, vault balance, quick actions and recent transactions
 - Send, Receive (address and QR code), Top Up, Cash Out and Activity
 - Circle Integration area: USDC on Arc status, native CCTP bridging into Arc from other chains, a Gateway unified USDC balance (kept separate from wallet and vault balances), and payment rails with payment tracking
+- CCTP bridging checks Circle's fee against your amount before your wallet is asked to sign anything. An amount too small to cover the fee is stopped with a clear message, and nothing is approved or burned
+- Transaction Guardian: every transaction is checked and simulated before your wallet opens, an identical transaction cannot be sent twice (even after a reload), and cross-chain transfers only show Completed after the destination result is read back. See [docs/guardian.md](docs/guardian.md)
 - Swap screen that stays disabled ("Swap liquidity is not configured") until a verified provider is registered
 - Light and dark themes that persist after refresh
 - Clear wrong-network warning with a switch action; transactions are blocked off Arc Mainnet (Chain ID 5042)

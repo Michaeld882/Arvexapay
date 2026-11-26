@@ -30,6 +30,29 @@ export interface SummaryRow {
   mono?: boolean
 }
 
+/**
+ * What a transaction is allowed to be, stated by whoever built the plan (the swap builders). The Guardian checks the
+ * encoded call against this and against the app's own list of verified addresses, never against the plan's claim alone.
+ */
+export type PlanGuard =
+  | { type: 'swap-approve'; token: Address; spender: Address }
+  | { type: 'permit2-approve'; token: Address; permit2: Address; router: Address; expiration: number }
+  | {
+      type: 'swap'
+      router: Address
+      tokenIn: Address
+      tokenOut: Address
+      amountIn: bigint
+      amountOut: bigint
+      minAmountOut: bigint
+      slippageBps: number
+      priceImpact?: number
+      /** Unix seconds the router rejects the transaction after. */
+      deadline: number
+      /** Unix milliseconds when the quote behind this plan was read. */
+      quotedAt: number
+    }
+
 /** Everything the confirmation screen and the receipt verifier need for one transaction. */
 export interface TxPlan {
   kind: LocalTxKind
@@ -40,6 +63,8 @@ export interface TxPlan {
   call: PlannedCall
   amount: bigint
   to?: Address
+  /** Set by plan builders whose calls go beyond USDC and the Arvexa vault (swaps). */
+  guard?: PlanGuard
   /** USDC that leaves the wallet in this transaction, when it differs from `amount` (for example a swap that sells USDC). */
   usdcOutflow?: bigint
   /** An optional local note and category. Saved in this browser against the real hash once the wallet submits; never sent onchain. */

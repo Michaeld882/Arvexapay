@@ -9,6 +9,7 @@ import { formatUsdcDisplay, shortHash } from '@/lib/format'
 import { Banner, Button, ExplorerLink, Row, Skeleton } from '@/components/ui'
 import { StatusIcon } from '@/components/StatusIcon'
 import { TxStepper } from '@/components/TxStepper'
+import { GuardianStatus } from '@/components/GuardianStatus'
 
 type Flow = ReturnType<typeof useTxFlow>
 
@@ -29,7 +30,7 @@ function TechnicalDetails({ error }: { error: AppError }) {
 }
 
 function ReviewBody({ flow, walletUsdc }: TxDialogProps) {
-  const { state, submit, reset } = flow
+  const { state, submit, reset, recheckGuardian } = flow
   const plan = state.plan
   const { address, wrongNetwork, switchToArc, isSwitching } = useWallet()
   const fee = useFeeEstimate(plan?.call ?? null, address)
@@ -41,7 +42,9 @@ function ReviewBody({ flow, walletUsdc }: TxDialogProps) {
   const spendsFromWallet = outflow > 0n
   const required = feeUsdc === undefined ? undefined : outflow + feeUsdc
   const short = walletUsdc !== undefined && required !== undefined && walletUsdc < required ? required - walletUsdc : 0n
-  const canConfirm = !wrongNetwork && feeUsdc !== undefined && walletUsdc !== undefined && short === 0n
+  // The Guardian must have finished and must not have blocked the transaction. A warning does not block: it is shown.
+  const guardianOk = state.guardian.status === 'done' && state.guardian.report.verdict !== 'blocked'
+  const canConfirm = !wrongNetwork && feeUsdc !== undefined && walletUsdc !== undefined && short === 0n && guardianOk
 
   return (
     <>
@@ -69,6 +72,7 @@ function ReviewBody({ flow, walletUsdc }: TxDialogProps) {
       </dl>
 
       <div className="mt-3 space-y-3">
+        {!wrongNetwork && <GuardianStatus view={state.guardian} flowPhase="review" hasHash={false} errorKind={state.error?.kind} onRecheck={recheckGuardian} />}
         {state.error && (
           <Banner tone={state.error.kind === 'user_rejected' ? 'info' : 'danger'}>
             {state.error.message}
@@ -199,6 +203,7 @@ export function TxDialog({ flow, walletUsdc }: TxDialogProps) {
           >
             <h2 className="display mb-4 text-xl font-semibold">{plan.title}</h2>
             <TxStepper phase={state.phase} hasHash={Boolean(state.hash)} />
+            {state.phase !== 'review' && <div className="mt-3"><GuardianStatus view={state.guardian} flowPhase={state.phase} hasHash={Boolean(state.hash)} errorKind={state.error?.kind} /></div>}
 
             {state.phase === 'review' && <ReviewBody flow={flow} walletUsdc={walletUsdc} />}
 

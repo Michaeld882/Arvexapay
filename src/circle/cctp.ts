@@ -7,6 +7,8 @@ import { chainKey, explorerTxUrl, feeLabel, getAppKit, type EvmChain, type Walle
 import { explorerTxUrl as arcTxUrl } from '@/chain'
 import { findArcMintSince, verifyArcMintByHash, waitForArcArrival, type ArrivalResult } from '@/circle/arrival'
 import { formatUsdc, parseUsdc } from '@/onchain-money'
+import { checkBurnFee, maxFeeFromQuote } from '@/circle/cctpFee'
+import { dedupedRead } from '@/guardian/retry'
 
 /**
  * Circle CCTP (native burn-and-mint) transfers of USDC from another chain into Arc.
@@ -58,6 +60,11 @@ export interface TransferRecord {
   mintHash?: string
   /** USDC credited on Arc (6-decimal text), read from the Arc receipt or Transfer log. */
   received?: string
+  /**
+   * The least this transfer can credit on Arc after fees (6-decimal base units as text): the amount minus the maxFee
+   * the burn was checked against. A mint smaller than this cannot be this transfer. Absent on records saved before it existed.
+   */
+  minReceived?: string
 }
 
 export const transferStore = createRecordStore<TransferRecord>('cctp')
@@ -91,12 +98,26 @@ export interface FeeLine {
   label: string
   token: string
   amount: string
+  /** The kit's fee kind (provider, forwarder, kit). Only provider and forwarder fees make up the burn's maxFee. */
+  type?: string
 }
 
 export interface TransferEstimate {
+  /** The amount (USDC text) this quote was made for, so a stale quote is never used for another amount. */
+  amount: string
   gas: FeeLine[]
   fees: FeeLine[]
+  /**
+   * The burn's maxFee in 6-decimal base units, exactly as the kit will set it. Undefined when Circle could not
+   * quote a fee, in which case the burn cannot be checked.
+   */
+  maxFee: bigint | undefined
+  /** Steps whose gas estimate failed, with the error. The kit estimates gas by running the step, so a failed Burn estimate is a failed burn simulation. */
+  gasErrors: Array<{ name: string; error: unknown }>
 }
+
+/** The kit surface this module uses. Tests pass a stand-in; the app uses the shared App Kit. */
+export type KitLike = Pick<Awaited<ReturnType<typeof getAppKit>>, 'bridge' | 'estimateBridge' | 'retryBridge' | 'on' | 'off'>
 
 function destination(input: { recipient: Address; useForwarder: boolean; adapter: WalletAdapter }) {
   return input.useForwarder
@@ -112,18 +133,63 @@ export async function estimateTransfer(input: {
   recipient: Address
   speed: TransferSpeed
   useForwarder: boolean
+  kit?: KitLike
 }): Promise<TransferEstimate> {
-  const kit = await getAppKit()
+  const kit = input.kit ?? (await getAppKit())
   const estimate = await kit.estimateBridge({
     from: { adapter: input.adapter, chain: input.source },
     to: destination(input),
     amount: input.amount,
     config: { transferSpeed: input.speed },
   })
+  const fees = estimate.fees.flatMap((item) => (item.amount === null ? [] : [{ label: feeLabel(item.type), token: item.token, amount: item.amount, type: item.type }]))
+  // A fee entry without an amount means Circle could not quote it, so the burn's maxFee is unknown.
+  const unknown = estimate.fees.some((item) => item.amount === null && (item.type === 'provider' || item.type === 'forwarder'))
   return {
+    amount: input.amount,
     gas: estimate.gasFees.flatMap((item) => (item.fees ? [{ label: `Network fee (${item.name.toLowerCase()})`, token: item.token, amount: String(item.fees.fee) }] : [])),
-    fees: estimate.fees.flatMap((item) => (item.amount === null ? [] : [{ label: feeLabel(item.type), token: item.token, amount: item.amount }])),
+    fees,
+    maxFee: unknown ? undefined : maxFeeFromQuote(fees),
+    gasErrors: estimate.gasFees.flatMap((item) => (item.fees ? [] : [{ name: item.name, error: (item as { error?: unknown }).error }])),
   }
+}
+
+/**
+ * The same quote for the same route is shared: the fee display and the Guardian ask for it at the same moment, so
+ * they make one request. `fresh` skips the short cache for the final check right before the wallet opens.
+ */
+export function quoteTransfer(input: Parameters<typeof estimateTransfer>[0], options: { fresh?: boolean } = {}): Promise<TransferEstimate> {
+  const key = `cctp:quote:${chainKey(input.source)}:${input.amount}:${input.recipient}:${input.speed}:${input.useForwarder}`
+  return dedupedRead(key, 20_000, () => estimateTransfer(input), { fresh: options.fresh })
+}
+
+/** Thrown before anything is signed, when the burn could not succeed or its fee could not be checked. */
+export class CctpFeeError extends Error {
+  readonly kind: 'too-small' | 'unavailable'
+  readonly maxFee?: bigint
+  constructor(kind: 'too-small' | 'unavailable', message: string, maxFee?: bigint) {
+    super(message)
+    this.name = 'CctpFeeError'
+    this.kind = kind
+    this.maxFee = maxFee
+  }
+}
+
+/**
+ * Quotes the burn fee for this exact route and amount and requires `maxFee < amount`. Run it before the wallet is
+ * asked to switch chain, approve or burn: if it throws, nothing was signed and no transfer exists.
+ */
+export async function assertBurnFeeCovered(input: Parameters<typeof estimateTransfer>[0]): Promise<bigint> {
+  let estimate: TransferEstimate
+  try {
+    estimate = await estimateTransfer(input)
+  } catch (err) {
+    throw new CctpFeeError('unavailable', `Could not check the CCTP fee, so nothing was sent. ${describeCircleError(err)}`)
+  }
+  if (estimate.maxFee === undefined) throw new CctpFeeError('unavailable', 'Circle could not quote the CCTP fee for this route right now, so nothing was sent. Try again in a moment.')
+  const check = checkBurnFee(parseUsdc(input.amount), estimate.maxFee)
+  if (!check.ok) throw new CctpFeeError('too-small', check.message, check.maxFee)
+  return check.maxFee
 }
 
 type Update = (record: TransferRecord) => void
@@ -183,11 +249,12 @@ function fromResult(record: TransferRecord, result: BridgeResult<string>): Trans
 
 function checkFor(record: TransferRecord): () => Promise<ArrivalResult> {
   const maxAmount = parseUsdc(record.amount)
+  const minAmount = record.minReceived !== undefined ? BigInt(record.minReceived) : undefined
   const hash = record.steps.find((step) => step.name === 'mint')?.txHash
   return () =>
     hash
-      ? verifyArcMintByHash({ hash: hash as `0x${string}`, recipient: record.recipient, maxAmount })
-      : findArcMintSince({ recipient: record.recipient, maxAmount, sinceMs: record.createdAt })
+      ? verifyArcMintByHash({ hash: hash as `0x${string}`, recipient: record.recipient, maxAmount, minAmount })
+      : findArcMintSince({ recipient: record.recipient, maxAmount, sinceMs: record.createdAt, minAmount })
 }
 
 /** Reads Arc for the mint. Only a verified mint makes the transfer `success`; anything else stays `unconfirmed`. */
@@ -214,8 +281,8 @@ export async function recheckTransfer(input: { record: TransferRecord; onUpdate:
   return next
 }
 
-async function track(record: TransferRecord, onUpdate: Update, run: () => Promise<BridgeResult<string>>): Promise<TransferRecord> {
-  const kit = await getAppKit()
+async function track(record: TransferRecord, onUpdate: Update, run: () => Promise<BridgeResult<string>>, kitOverride?: KitLike): Promise<TransferRecord> {
+  const kit = kitOverride ?? (await getAppKit())
   let current = record
   const emit = (next: TransferRecord) => {
     current = next
@@ -239,9 +306,9 @@ async function track(record: TransferRecord, onUpdate: Update, run: () => Promis
 }
 
 /** Runs the transfer. Call only from an explicit user action. */
-export async function runTransfer(input: { record: TransferRecord; source: EvmChain; adapter: WalletAdapter; onUpdate: Update }): Promise<TransferRecord> {
+export async function runTransfer(input: { record: TransferRecord; source: EvmChain; adapter: WalletAdapter; onUpdate: Update; kit?: KitLike }): Promise<TransferRecord> {
   const { record, source, adapter, onUpdate } = input
-  const kit = await getAppKit()
+  const kit = input.kit ?? (await getAppKit())
   return track(record, onUpdate, () =>
     kit.bridge({
       from: { adapter, chain: source },
@@ -249,18 +316,19 @@ export async function runTransfer(input: { record: TransferRecord; source: EvmCh
       amount: record.amount,
       config: { transferSpeed: record.speed },
     }),
+    kit,
   )
 }
 
 /** Resumes from the failed step. Completed steps (including the burn) are never repeated. */
-export async function retryTransfer(input: { record: TransferRecord; adapter: WalletAdapter; onUpdate: Update }): Promise<TransferRecord> {
+export async function retryTransfer(input: { record: TransferRecord; adapter: WalletAdapter; onUpdate: Update; kit?: KitLike }): Promise<TransferRecord> {
   const { record, adapter, onUpdate } = input
   if (!record.result) throw new Error('This transfer has nothing to resume.')
   const result = record.result
-  const kit = await getAppKit()
+  const kit = input.kit ?? (await getAppKit())
   const restarted: TransferRecord = { ...record, state: 'pending', error: undefined, steps: record.steps.map((step) => (step.state === 'error' ? { ...step, state: 'active', message: undefined } : step)) }
   onUpdate(restarted)
-  return track(restarted, onUpdate, () => kit.retryBridge(result, { from: adapter, to: adapter }))
+  return track(restarted, onUpdate, () => kit.retryBridge(result, { from: adapter, to: adapter }), kit)
 }
 
 const burned = (record: TransferRecord): boolean => record.steps.some((step) => step.name === 'burn' && step.state === 'success')
