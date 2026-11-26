@@ -238,6 +238,8 @@ export function useActivity(user: Address | undefined) {
     queryKey,
     enabled: Boolean(user),
     staleTime: 60_000,
+    // The scan already retries transient failures itself; stacking more retries only makes a failure take longer to show.
+    retry: false,
     initialPageParam: undefined as bigint | undefined,
     queryFn: ({ pageParam, signal }) =>
       loadPage(
@@ -281,8 +283,14 @@ export function useActivity(user: Address | undefined) {
   const oldest = pages.length ? pages[pages.length - 1].fromBlock : undefined
   const head = pages.length ? pages[0].head : undefined
 
+  const onchainCount = pages.reduce((total, page) => total + page.items.length, 0)
+  // The history could not be read at all: the request failed, or the scan stopped before finding anything.
+  const failed = query.isError ? onchainCount === 0 : pages.some((page) => page.incomplete) && onchainCount === 0
+
   return {
     items,
+    failed,
+    failureMessage: query.isError ? classifyError(query.error).message : 'Arc did not answer in time. It may be limiting requests for a moment.',
     isLoading: query.isPending && Boolean(user),
     isError: query.isError,
     error: query.error,

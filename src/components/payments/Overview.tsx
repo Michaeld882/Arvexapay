@@ -1,7 +1,6 @@
 import { ArrowDownLeft, ArrowUpRight, CheckCheck, Clock, Hash } from 'lucide-react'
 import { MODULES, ModuleIcon, StatusBadge, type ModuleId } from '@/components/payments/kit'
 import { Banner, Button, Card, Skeleton, cx } from '@/components/ui'
-import { classifyError } from '@/lib/errors'
 import { formatUsdcDisplay } from '@/lib/format'
 import { categoryTotals, type LedgerEntry, type Overview } from '@/lib/payments/ledger'
 import { DUE_COLOR, dueLabel, dueState, localDate, payReminderPath, upcoming, useReminders } from '@/lib/payments/reminders'
@@ -29,12 +28,24 @@ function Stat({ label, value, sub, color, icon: Icon }: { label: string; value: 
 }
 
 /** Totals from real, verified payments and your open requests. Every figure says what it counts. */
-export function OverviewStats({ overview, loading }: { overview: Overview; loading: boolean }) {
+export function OverviewStats({ overview, loading, unavailable = false }: { overview: Overview; loading: boolean; unavailable?: boolean }) {
   if (loading)
     return (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-busy>
         {Array.from({ length: 5 }, (_, index) => (
           <Skeleton key={index} className="h-[88px] w-full" />
+        ))}
+      </div>
+    )
+  if (unavailable)
+    return (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Totals unavailable">
+        {['Total received', 'Total sent', 'Pending', 'Completed', 'Payments'].map((label) => (
+          <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{label}</p>
+            <p className="display mt-1.5 text-lg font-semibold text-subtle">—</p>
+            <p className="mt-0.5 text-[11px] text-muted">unavailable</p>
+          </div>
         ))}
       </div>
     )
@@ -152,10 +163,10 @@ export function CategoryBreakdown({ ledger, metas, requests }: { ledger: readonl
 }
 
 export function DataError({ data }: { data: Data }) {
-  if (!data.activity.isError || data.ledger.length > 0) return null
+  if (!data.activity.failed || data.ledger.length > 0) return null
   return (
     <Banner tone="warn" title="Could not load payments" action={<Button variant="secondary" className="min-h-10" onClick={data.activity.refresh}>Try again</Button>}>
-      {classifyError(data.activity.error).message} No figures are shown rather than guessing.
+      {data.activity.failureMessage} No figures are shown rather than guessing.
     </Banner>
   )
 }

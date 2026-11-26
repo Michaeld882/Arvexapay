@@ -10,6 +10,8 @@ import { DataError, OverviewStats, PendingList, UpcomingCard } from '@/component
 import { Banner, Button, Card, CopyButton, Skeleton, cx } from '@/components/ui'
 import { usePaymentsData } from '@/hooks/usePayments'
 import { useBalances } from '@/hooks/useBalances'
+import { useWallet } from '@/hooks/useWallet'
+import { SlowHint } from '@/components/SlowHint'
 import { classifyError } from '@/lib/errors'
 import { formatUsdcDisplay, shortAddress } from '@/lib/format'
 import { Link } from '@/lib/router'
@@ -47,6 +49,60 @@ function HeroAmount({ raw, loading, address }: { raw: bigint | undefined; loadin
   )
 }
 
+/** The eight payment actions and the secondary links. Plain links, so they work before any data has loaded. */
+function QuickActions() {
+  return (
+      <section aria-label="Quick actions" className="space-y-2.5">
+        <nav className="grid grid-cols-4 gap-2 sm:gap-3">
+          {ACTIONS.map(({ to, label, full, icon: Icon, tint }, index) => (
+            <Link
+              key={to}
+              to={to}
+              aria-label={full}
+              style={{ ['--d' as string]: `${300 + index * 45}ms`, ['--tint' as string]: tint }}
+              className="tile surface lift rise group flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-center text-[11px] font-semibold leading-tight text-ink sm:text-xs"
+            >
+              <span className="icon-chip">
+                <Icon className="size-5 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" aria-hidden />
+              </span>
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <nav aria-label="More" className="flex flex-wrap gap-1.5">
+          {MORE.map(({ to, label }) => (
+            <Link key={to} to={to} className="inline-flex min-h-9 items-center rounded-full border border-line bg-surface-muted px-3.5 text-xs font-semibold text-ink-2 transition-colors hover:border-line-strong hover:text-ink">
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </section>
+  )
+}
+
+/** What shows while a saved wallet session is being restored: the real layout with skeletons, and working actions. */
+function DashboardShell() {
+  return (
+    <div className="space-y-5" aria-busy>
+      <Card className="hero-card">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">Wallet balance</p>
+        <Skeleton className="mt-3 h-11 w-48" />
+        <Skeleton className="mt-3 h-4 w-32" />
+      </Card>
+      <QuickActions />
+      <Card className="space-y-3">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-16 w-full" />
+      </Card>
+      <Card className="space-y-3">
+        <Skeleton className="h-6 w-44" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </Card>
+    </div>
+  )
+}
+
 function DashboardContent({ address }: { address: Address }) {
   const balances = useBalances(address)
   const data = usePaymentsData(address)
@@ -81,6 +137,7 @@ function DashboardContent({ address }: { address: Address }) {
           <span className="text-lg font-medium text-subtle">USDC</span>
         </div>
         <p className="mt-2 text-xs text-muted">{NETWORK_LABEL}</p>
+        <SlowHint loading={balances.isLoading} onRetry={balances.refetch} />
         {balances.vaultReady && (
           <dl className="mt-4 flex flex-wrap gap-2" aria-label="Where your USDC is">
             <div className="stat-pill rounded-full px-3 py-1.5 text-xs">
@@ -124,31 +181,7 @@ function DashboardContent({ address }: { address: Address }) {
         </Banner>
       )}
 
-      <section aria-label="Quick actions" className="space-y-2.5">
-        <nav className="grid grid-cols-4 gap-2 sm:gap-3">
-          {ACTIONS.map(({ to, label, full, icon: Icon, tint }, index) => (
-            <Link
-              key={to}
-              to={to}
-              aria-label={full}
-              style={{ ['--d' as string]: `${300 + index * 45}ms`, ['--tint' as string]: tint }}
-              className="tile surface lift rise group flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-center text-[11px] font-semibold leading-tight text-ink sm:text-xs"
-            >
-              <span className="icon-chip">
-                <Icon className="size-5 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" aria-hidden />
-              </span>
-              {label}
-            </Link>
-          ))}
-        </nav>
-        <nav aria-label="More" className="flex flex-wrap gap-1.5">
-          {MORE.map(({ to, label }) => (
-            <Link key={to} to={to} className="inline-flex min-h-9 items-center rounded-full border border-line bg-surface-muted px-3.5 text-xs font-semibold text-ink-2 transition-colors hover:border-line-strong hover:text-ink">
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </section>
+      <QuickActions />
 
       <Card className="rise space-y-3.5" style={{ ['--d' as string]: '420ms' }}>
         <div className="flex items-center justify-between gap-3">
@@ -158,7 +191,7 @@ function DashboardContent({ address }: { address: Address }) {
           </Link>
         </div>
         <DataError data={data} />
-        <OverviewStats overview={data.overview} loading={activity.isLoading && data.ledger.length === 0} />
+        <OverviewStats overview={data.overview} loading={activity.isLoading && data.ledger.length === 0} unavailable={activity.failed && data.ledger.length === 0} />
       </Card>
 
       <UpcomingCard owner={address} />
@@ -179,10 +212,11 @@ function DashboardContent({ address }: { address: Address }) {
           <div className="space-y-3 py-3">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
+            <SlowHint loading onRetry={activity.refresh} />
           </div>
-        ) : activity.isError ? (
+        ) : activity.failed && recent.length === 0 ? (
           <Banner tone="warn" title="Could not load activity" className="mt-3" action={<Button variant="secondary" className="min-h-10" onClick={activity.refresh}>Try again</Button>}>
-            {classifyError(activity.error).message}
+            {activity.failureMessage}
           </Banner>
         ) : recent.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">No transactions found in the recently scanned blocks.</p>
@@ -197,5 +231,7 @@ function DashboardContent({ address }: { address: Address }) {
 }
 
 export default function Dashboard() {
+  const { status } = useWallet()
+  if (status === 'connecting') return <DashboardShell />
   return <ConnectGate allowWrongNetwork>{(address) => <DashboardContent address={address} />}</ConnectGate>
 }

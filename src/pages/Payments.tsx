@@ -65,7 +65,7 @@ function PaymentsContent({ owner }: { owner: Address }) {
           </div>
         </div>
         <DataError data={data} />
-        <OverviewStats overview={data.overview} loading={data.activity.isLoading && data.ledger.length === 0} />
+        <OverviewStats overview={data.overview} loading={data.activity.isLoading && data.ledger.length === 0} unavailable={data.activity.failed && data.ledger.length === 0} />
         <SyncStatus sync={data.sync} />
       </Card>
 

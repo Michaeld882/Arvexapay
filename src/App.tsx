@@ -1,5 +1,4 @@
 import { Suspense, lazy, useDeferredValue, useEffect, type ComponentType, type LazyExoticComponent } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 import { Layout } from '@/components/Layout'
 import { BackButton, Button, Card, PageHeader, Skeleton, cx } from '@/components/ui'
 import { Onboarding } from '@/components/onboarding/Onboarding'
@@ -91,22 +90,9 @@ function PublicPay() {
 export default function App() {
   const gate = useAppGate()
   const route = useRoute()
-  if (gate === 'splash') return <div className="min-h-dvh" aria-busy />
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      {gate === 'intro' && route === '/pay' ? (
-        <motion.div key="pay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-          <PublicPay />
-        </motion.div>
-      ) : gate === 'intro' ? (
-        <motion.div key="intro" exit={{ opacity: 0, filter: 'blur(6px)' }} transition={{ duration: 0.28 }}>
-          <Onboarding />
-        </motion.div>
-      ) : (
-        <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
-          <MainApp />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
+  // No exit animation and no loading screen between the intro and the app: the shell is on screen the moment the
+  // wallet is connected, and each section then fills in on its own as its data arrives.
+  if (gate === 'intro' && route === '/pay') return <PublicPay key="pay" />
+  if (gate === 'intro') return <Onboarding key="intro" />
+  return <MainApp key="app" />
 }

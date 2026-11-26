@@ -2,9 +2,9 @@ import { useMemo } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Hash } from 'lucide-react'
 import type { useActivity } from '@/hooks/useActivity'
 import { useNow } from '@/hooks/useNow'
-import { classifyError } from '@/lib/errors'
 import { formatUsdcDisplay, timeAgo } from '@/lib/format'
 import { computeInsights, type TrendBucket } from '@/lib/insights'
+import { SlowHint } from '@/components/SlowHint'
 import { Banner, Button, Card, Skeleton } from '@/components/ui'
 
 type Activity = ReturnType<typeof useActivity>
@@ -76,10 +76,11 @@ export function Insights({ activity }: { activity: Activity }) {
             <Skeleton className="h-20 w-full" />
           </div>
           <Skeleton className="h-24 w-full" />
+          <SlowHint loading onRetry={activity.refresh} />
         </div>
-      ) : activity.isError && activity.items.length === 0 ? (
+      ) : activity.failed && activity.items.length === 0 ? (
         <Banner tone="warn" title="Could not load insights" action={<Button variant="secondary" className="min-h-10" onClick={activity.refresh}>Try again</Button>}>
-          {classifyError(activity.error).message} No figures are shown rather than guessing.
+          {activity.failureMessage} No figures are shown rather than guessing.
         </Banner>
       ) : insights.count === 0 ? (
         <p className="py-4 text-center text-sm text-muted">No confirmed transactions were found in the scanned blocks yet. Insights appear as you send and receive USDC.</p>

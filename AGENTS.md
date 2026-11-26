@@ -95,3 +95,10 @@ bun run dev
 - `MainApp` uses `useDeferredValue(route)`: the tapped screen is highlighted at once, the previous page stays (dimmed, with a progress line) until the next one is ready, and `PageFallback` (Back button plus skeletons) shows only if nothing is on screen yet.
 - `navigate()` ignores the current path+query so repeat taps never add history; scroll position is saved per history entry and restored on back. `ensureBackStack()` puts the Dashboard behind a directly opened page (not `/pay`) so the device back button does not leave the app.
 - Every secondary page starts with `PageHeader` or `ModuleHero`, both of which render `BackButton`. New pages must do the same.
+
+## After connecting
+
+- `useAppGate` returns only `intro` or `app`. A saved session being restored (`reconnecting`) renders the app shell (Dashboard skeletons, working quick actions) instead of a blank splash; there is no exit animation or full-screen loader between the intro and the app.
+- The intro preloads the Dashboard code and warms the other screens while it is read, so the Dashboard opens the moment the wallet connects.
+- Entrance animations are short with a capped stagger (`.rise`, `.slide-in`, `.page-in` in `index.css`); the looping card glow is off on phones.
+- Each Dashboard section loads on its own: balance, overview, recent activity and insights have their own skeleton, a `SlowHint` retry after 6s, and an error with Try again that does not affect the others. `useActivity().failed` is true when the history could not be read at all; totals then show "unavailable", never zeros. The activity query does not stack retries on top of the scan's own.

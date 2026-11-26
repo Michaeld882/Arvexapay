@@ -6,7 +6,6 @@ import { Empty, MODULES, ModuleHero } from '@/components/payments/kit'
 import { ReceiptCard } from '@/components/payments/ReceiptCard'
 import { Banner, Button, Card, Skeleton, cx } from '@/components/ui'
 import { usePaymentsData } from '@/hooks/usePayments'
-import { classifyError } from '@/lib/errors'
 import { formatTimestamp, formatUsdcDisplay, shortAddress } from '@/lib/format'
 import { buildReceipts } from '@/lib/payments/receipts'
 import { useLocalTxs } from '@/lib/txLog'
@@ -40,9 +39,9 @@ function ReceiptsContent({ owner }: { owner: Address }) {
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />
           </div>
-        ) : activity.isError && receipts.length === 0 ? (
+        ) : activity.failed && receipts.length === 0 ? (
           <Banner tone="danger" title="Could not load payments" action={<Button variant="secondary" className="min-h-10" onClick={activity.refresh}>Try again</Button>}>
-            {classifyError(activity.error).message}
+            {activity.failureMessage}
           </Banner>
         ) : visible.length === 0 ? (
           <Empty module={MODULES.receipts} title="No receipts yet">

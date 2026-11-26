@@ -347,3 +347,13 @@ a:active:not(.lift), .tap:active { opacity: 0.8; }
 .pay-glow { animation: pay-glow 3.2s ease-in-out infinite; }
 
 .page-switching { opacity: 0.6; transition: opacity 0.15s ease-out; pointer-events: none; }
+
+/* Fast first paint: short entrance animations with a capped stagger, and no looping glow on phones. */
+.page-in { animation-duration: 0.22s; }
+.rise, .card-in { animation-duration: 0.3s; animation-delay: min(var(--d, 0ms), 90ms); }
+.slide-in, .fade-in { animation-duration: 0.25s; animation-delay: min(var(--d, 0ms), 90ms); }
+@keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (max-width: 767px), (hover: none) {
+  .ambient::before, .ambient::after { animation: none; }
+}

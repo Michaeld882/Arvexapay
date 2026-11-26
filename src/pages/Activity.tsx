@@ -55,9 +55,9 @@ function ActivityContent({ address }: { address: Address }) {
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />
           </div>
-        ) : activity.isError && activity.items.length === 0 ? (
+        ) : activity.failed && activity.items.length === 0 ? (
           <Banner tone="danger" title="Could not load activity" action={<Button variant="secondary" className="min-h-10" onClick={activity.refresh}>Try again</Button>}>
-            {classifyError(activity.error).message} No history is shown rather than guessing.
+            {activity.failureMessage} No history is shown rather than guessing.
           </Banner>
         ) : visible.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted">

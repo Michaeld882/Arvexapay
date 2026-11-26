@@ -4,7 +4,6 @@ import { Empty, MODULES, ModuleHero, StatusBadge } from '@/components/payments/k
 import { Banner, Button, Card, CopyButton, Skeleton, ExplorerLink } from '@/components/ui'
 import { usePaymentsData } from '@/hooks/usePayments'
 import { contactFor, useContacts } from '@/lib/contacts'
-import { classifyError } from '@/lib/errors'
 import { formatTimestamp, formatUsdcDisplay, shortAddress, timeAgo } from '@/lib/format'
 import { groupCustomers } from '@/lib/payments/ledger'
 import { statusOf } from '@/lib/payments/requests'
@@ -29,9 +28,9 @@ function CustomersContent({ owner }: { owner: Address }) {
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
           </div>
-        ) : activity.isError && groups.length === 0 ? (
+        ) : activity.failed && groups.length === 0 ? (
           <Banner tone="danger" title="Could not load payments" action={<Button variant="secondary" className="min-h-10" onClick={activity.refresh}>Try again</Button>}>
-            {classifyError(activity.error).message}
+            {activity.failureMessage}
           </Banner>
         ) : groups.length === 0 ? (
           <Empty module={MODULES.customers} title="No customers yet">

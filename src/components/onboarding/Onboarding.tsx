@@ -1,4 +1,6 @@
 import { ConnectKitButton } from 'connectkit'
+import { useEffect } from 'react'
+import { preloadPage, warmAllPages } from '@/lib/pages'
 import { ArrowRight, Loader2 } from 'lucide-react'
 import { LogoMark } from '@/components/Logo'
 import { ArcHero } from '@/components/onboarding/ArcHero'
@@ -11,6 +13,12 @@ import { HowItWorks } from '@/components/onboarding/HowItWorks'
  * wallet connects, the app takes over. It reads no wallet data and shows no balances or history.
  */
 export function Onboarding() {
+  // While the intro is being read, fetch the code for the Dashboard and the other screens (code only, no blockchain
+  // data), so the Dashboard opens the instant the wallet connects.
+  useEffect(() => {
+    preloadPage('/')
+    warmAllPages()
+  }, [])
   return (
     <main className="ob-root">
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-[150px] pt-5">
@@ -36,7 +44,10 @@ export function Onboarding() {
             {({ show, isConnecting }) => (
               <button
                 type="button"
-                onClick={() => show?.()}
+                onClick={() => {
+                  preloadPage('/')
+                  show?.()
+                }}
                 disabled={isConnecting}
                 className="ob-cta flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-bold transition-transform duration-200 active:scale-[0.97] disabled:opacity-80"
               >

@@ -11,7 +11,6 @@ import { sanitizeAmount } from '@/components/Inputs'
 import { Banner, Button, Card, CopyButton, Skeleton } from '@/components/ui'
 import { useNow } from '@/hooks/useNow'
 import { usePaymentsData } from '@/hooks/usePayments'
-import { classifyError } from '@/lib/errors'
 import { formatUsdcDisplay } from '@/lib/format'
 import { ledgerAsActivity } from '@/lib/payments/ledger'
 import { linkForRequest, payLinkPath } from '@/lib/payments/links'
@@ -172,9 +171,9 @@ function MerchantContent({ owner }: { owner: Address }) {
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
-        ) : data.activity.isError && incoming.length === 0 ? (
+        ) : data.activity.failed && incoming.length === 0 ? (
           <Banner tone="warn" title="Could not load payments" className="mt-3" action={<Button variant="secondary" className="min-h-10" onClick={data.activity.refresh}>Try again</Button>}>
-            {classifyError(data.activity.error).message}
+            {data.activity.failureMessage}
           </Banner>
         ) : incoming.length === 0 ? (
           <Empty module={MODULES.merchant} title="No payments received yet">
