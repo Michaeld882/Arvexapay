@@ -8,6 +8,7 @@ import { classifyError, type AppError } from '@/lib/errors'
 import { formatUsdcDisplay, shortHash } from '@/lib/format'
 import { Banner, Button, ExplorerLink, Row, Skeleton } from '@/components/ui'
 import { StatusIcon } from '@/components/StatusIcon'
+import { TxStepper } from '@/components/TxStepper'
 
 type Flow = ReturnType<typeof useTxFlow>
 
@@ -197,6 +198,7 @@ export function TxDialog({ flow, walletUsdc }: TxDialogProps) {
             exit={{ y: 16, scale: 0.96, opacity: 0, transition: { duration: 0.18, ease: 'easeIn' } }}
           >
             <h2 className="display mb-4 text-xl font-semibold">{plan.title}</h2>
+            <TxStepper phase={state.phase} hasHash={Boolean(state.hash)} />
 
             {state.phase === 'review' && <ReviewBody flow={flow} walletUsdc={walletUsdc} />}
 

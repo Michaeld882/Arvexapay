@@ -1,22 +1,37 @@
-import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, QrCode, RefreshCw, Send, type LucideIcon } from 'lucide-react'
+import { HandCoins, QrCode, RefreshCw, ScanLine, Send, type LucideIcon } from 'lucide-react'
 import type { Address } from 'viem'
 import { NETWORK_LABEL } from '@/chain'
 import { ActivityList } from '@/components/ActivityList'
 import { AnimatedAmount } from '@/components/AnimatedAmount'
 import { ConnectGate } from '@/components/ConnectGate'
+import { Insights } from '@/components/Insights'
+import { MODULES } from '@/components/payments/kit'
+import { DataError, OverviewStats, PendingList, UpcomingCard } from '@/components/payments/Overview'
 import { Banner, Button, Card, CopyButton, Skeleton, cx } from '@/components/ui'
-import { useActivity } from '@/hooks/useActivity'
+import { usePaymentsData } from '@/hooks/usePayments'
 import { useBalances } from '@/hooks/useBalances'
 import { classifyError } from '@/lib/errors'
 import { formatUsdcDisplay, shortAddress } from '@/lib/format'
 import { Link } from '@/lib/router'
 
-const ACTIONS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon }> = [
-  { to: '/send', label: 'Send', icon: Send },
-  { to: '/receive', label: 'Receive', icon: QrCode },
-  { to: '/swap', label: 'Swap', icon: ArrowLeftRight },
-  { to: '/deposit', label: 'Deposit', icon: ArrowDownToLine },
-  { to: '/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
+const ACTIONS: ReadonlyArray<{ to: string; label: string; full: string; icon: LucideIcon; tint: string }> = [
+  { to: '/send', label: 'Send', full: 'Send', icon: Send, tint: '#22d3ee' },
+  { to: '/receive', label: 'Receive', full: 'Receive', icon: QrCode, tint: '#2cf5a6' },
+  { to: '/scan', label: 'Scan & Pay', full: 'Scan and pay', icon: ScanLine, tint: '#4f8cff' },
+  { to: MODULES.split.path, label: 'Split', full: 'Split payment', icon: MODULES.split.icon, tint: MODULES.split.from },
+  { to: MODULES.link.path, label: 'Pay Link', full: 'Payment link', icon: MODULES.link.icon, tint: MODULES.link.from },
+  { to: MODULES.invoice.path, label: 'Invoice', full: 'Invoice', icon: MODULES.invoice.icon, tint: MODULES.invoice.from },
+  { to: MODULES.request.path, label: 'Request', full: 'Request payment', icon: HandCoins, tint: MODULES.request.from },
+  { to: MODULES.merchant.path, label: 'Merchant', full: 'Merchant mode', icon: MODULES.merchant.icon, tint: MODULES.merchant.from },
+]
+
+const MORE: ReadonlyArray<{ to: string; label: string }> = [
+  { to: '/deposit', label: 'Deposit' },
+  { to: '/withdraw', label: 'Withdraw' },
+  { to: '/swap', label: 'Swap' },
+  { to: '/activity', label: 'History' },
+  { to: MODULES.receipts.path, label: 'Receipts' },
+  { to: '/payments', label: 'All payment tools' },
 ]
 
 /** The hero shows the exact balance (never a rounded 0.00); longer numbers get a smaller type size. */
@@ -34,7 +49,8 @@ function HeroAmount({ raw, loading, address }: { raw: bigint | undefined; loadin
 
 function DashboardContent({ address }: { address: Address }) {
   const balances = useBalances(address)
-  const activity = useActivity(address)
+  const data = usePaymentsData(address)
+  const activity = data.activity
   const recent = activity.items.slice(0, 5)
 
   return (
@@ -108,23 +124,51 @@ function DashboardContent({ address }: { address: Address }) {
         </Banner>
       )}
 
-      <nav aria-label="Quick actions" className="grid grid-cols-5 gap-2 sm:gap-3">
-        {ACTIONS.map(({ to, label, icon: Icon }, index) => (
-          <Link
-            key={to}
-            to={to}
-            style={{ ['--d' as string]: `${300 + index * 60}ms`, ['--tint' as string]: index % 2 === 0 ? 'var(--accent)' : 'var(--accent-2)' }}
-            className="tile surface lift rise flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-xs font-semibold text-ink"
-          >
-            <span className="icon-chip">
-              <Icon className="size-5" aria-hidden />
-            </span>
-            {label}
-          </Link>
-        ))}
-      </nav>
+      <section aria-label="Quick actions" className="space-y-2.5">
+        <nav className="grid grid-cols-4 gap-2 sm:gap-3">
+          {ACTIONS.map(({ to, label, full, icon: Icon, tint }, index) => (
+            <Link
+              key={to}
+              to={to}
+              aria-label={full}
+              style={{ ['--d' as string]: `${300 + index * 45}ms`, ['--tint' as string]: tint }}
+              className="tile surface lift rise group flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-2xl px-1 text-center text-[11px] font-semibold leading-tight text-ink sm:text-xs"
+            >
+              <span className="icon-chip">
+                <Icon className="size-5 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" aria-hidden />
+              </span>
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <nav aria-label="More" className="flex flex-wrap gap-1.5">
+          {MORE.map(({ to, label }) => (
+            <Link key={to} to={to} className="inline-flex min-h-9 items-center rounded-full border border-line bg-surface-muted px-3.5 text-xs font-semibold text-ink-2 transition-colors hover:border-line-strong hover:text-ink">
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </section>
 
-      <Card className="rise lift-lg" style={{ ['--d' as string]: '640ms' }}>
+      <Card className="rise space-y-3.5" style={{ ['--d' as string]: '420ms' }}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="display text-lg font-semibold">Payment overview</h2>
+          <Link to="/payments" className="text-xs font-semibold text-accent-hover hover:underline">
+            Open Payments
+          </Link>
+        </div>
+        <DataError data={data} />
+        <OverviewStats overview={data.overview} loading={activity.isLoading && data.ledger.length === 0} />
+      </Card>
+
+      <UpcomingCard owner={address} />
+
+      <Card className="rise space-y-3" style={{ ['--d' as string]: '470ms' }}>
+        <h2 className="display text-lg font-semibold">Pending requests and invoices</h2>
+        <PendingList requests={data.requests} nowSeconds={data.nowSeconds} />
+      </Card>
+
+      <Card className="rise lift-lg" style={{ ['--d' as string]: '520ms' }}>
         <div className="mb-1 flex items-center justify-between">
           <h2 className="display text-lg font-semibold">Recent transactions</h2>
           <Link to="/activity" className="text-xs font-semibold text-accent-hover hover:underline">
@@ -143,9 +187,11 @@ function DashboardContent({ address }: { address: Address }) {
         ) : recent.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">No transactions found in the recently scanned blocks.</p>
         ) : (
-          <ActivityList items={recent} compact />
+          <ActivityList items={recent} compact owner={address} />
         )}
       </Card>
+
+      <Insights activity={activity} />
     </div>
   )
 }

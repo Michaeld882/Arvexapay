@@ -69,7 +69,7 @@ function ActivityContent({ address }: { address: Address }) {
             </p>
           </div>
         ) : (
-          <ActivityList items={visible} />
+          <ActivityList items={visible} owner={address} />
         )}
       </Card>
 
@@ -105,7 +105,7 @@ function ActivityContent({ address }: { address: Address }) {
 export default function Activity() {
   return (
     <>
-      <PageHeader title="Activity" subtitle="Real onchain history for your wallet. Failed transactions appear only if you submitted them from this browser." />
+      <PageHeader title="Activity" subtitle="Your wallet timeline, built from real onchain history. Failed or pending transactions appear only if you submitted them from this browser." />
       <ConnectGate allowWrongNetwork>{(address) => <ActivityContent address={address} />}</ConnectGate>
     </>
   )

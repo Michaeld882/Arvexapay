@@ -320,3 +320,30 @@ a:active:not(.lift), .tap:active { opacity: 0.8; }
 }
 @keyframes ob-nudge { 0%, 100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
 @keyframes ob-breath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+
+/* Activity timeline and live updates */
+@keyframes flash-in { 0% { background: color-mix(in srgb, var(--accent) 26%, transparent); transform: translateY(-6px); opacity: 0; } 30% { opacity: 1; transform: none; } 100% { background: transparent; } }
+.flash-in { animation: flash-in 1.8s var(--ease-out) both; }
+.timeline > li { position: relative; }
+.timeline > li::before { content: ''; position: absolute; left: 1.7rem; top: 3.5rem; bottom: -0.2rem; width: 1px; background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 45%, transparent), transparent); }
+.timeline > li:last-child::before { display: none; }
+
+@keyframes scan-sweep { 0% { top: 12%; opacity: 0; } 10%, 90% { opacity: 1; } 100% { top: 86%; opacity: 0; } }
+.scan-sweep { animation: scan-sweep 2.2s ease-in-out infinite; }
+.tile:hover .icon-chip svg { animation: icon-bob 0.9s ease-in-out infinite; }
+@keyframes icon-bob { 0%, 100% { transform: translateY(0) scale(1.1); } 50% { transform: translateY(-2px) scale(1.1); } }
+
+@keyframes border-shift { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+.anim-border { background: linear-gradient(110deg, #2cf5a6, #22d3ee, #4f8cff, #a855f7, #2cf5a6); background-size: 300% 100%; animation: border-shift 9s linear infinite; box-shadow: 0 18px 50px -22px rgba(34, 211, 238, 0.45); }
+
+/* Payment modules */
+@keyframes pay-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-2px) rotate(-4deg); } }
+.pay-icon-glyph { animation: pay-float 3.4s ease-in-out infinite; }
+.pay-icon::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); pointer-events: none; }
+.pay-tile { transition: transform 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out), border-color 0.25s; }
+.pay-tile:hover { transform: translateY(-3px); }
+.pay-tile:active { transform: scale(0.97); }
+@keyframes pay-glow { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 28px -6px var(--glow, var(--accent)); } }
+.pay-glow { animation: pay-glow 3.2s ease-in-out infinite; }
+
+.page-switching { opacity: 0.6; transition: opacity 0.15s ease-out; pointer-events: none; }

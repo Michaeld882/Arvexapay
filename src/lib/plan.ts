@@ -3,6 +3,7 @@ import { ARVEXA_ADDRESS, USDC } from '@/chain'
 import { arvexaAbi } from '@/lib/abi'
 import { AppError } from '@/lib/errors'
 import type { LocalTxKind } from '@/lib/txLog'
+import type { TxMeta } from '@/lib/txMeta'
 import { formatUsdcDisplay, shortAddress } from '@/lib/format'
 
 export interface ContractCall {
@@ -41,6 +42,8 @@ export interface TxPlan {
   to?: Address
   /** USDC that leaves the wallet in this transaction, when it differs from `amount` (for example a swap that sells USDC). */
   usdcOutflow?: bigint
+  /** An optional local note and category. Saved in this browser against the real hash once the wallet submits; never sent onchain. */
+  meta?: TxMeta
   /**
    * Throws AppError('unverified') if the receipt lacks the expected onchain events.
    * May return a sentence describing what the verified logs showed (for example the amount received).
@@ -90,6 +93,15 @@ export function buildSendPlan(from: Address, to: Address, amount: bigint, labels
       if (!ok) throw unverified('USDC Transfer event')
     },
   }
+}
+
+/** Adds an optional note and category to a plan. They show on the review screen and are kept locally; the call itself is untouched. */
+export function withMeta(plan: TxPlan, meta: TxMeta): TxPlan {
+  if (!meta.note && !meta.category) return plan
+  const rows = [...plan.rows]
+  if (meta.note) rows.push({ label: 'Note (saved on this device)', value: meta.note })
+  if (meta.category) rows.push({ label: 'Category', value: meta.category })
+  return { ...plan, rows, meta }
 }
 
 export function buildApprovePlan(owner: Address, amount: bigint): TxPlan {

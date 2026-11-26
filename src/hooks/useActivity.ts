@@ -13,7 +13,7 @@ import {
 import { backoffDelay, sleep } from '@/lib/backoff'
 import { classifyError, isTransientError } from '@/lib/errors'
 import { getArcClient } from '@/lib/rpc'
-import { updateLocalTxStatus, useLocalTxs } from '@/lib/txLog'
+import { readLocalTxs, updateLocalTxStatus, useLocalTxs } from '@/lib/txLog'
 
 const transferEvent = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)')
 const depositedEvent = parseAbiItem('event Deposited(address indexed account, uint256 amount, uint256 newBalance)')
@@ -253,10 +253,24 @@ export function useActivity(user: Address | undefined) {
   })
 
   const pendingKey = localTxs.filter((tx) => tx.status === 'pending').map((tx) => tx.hash).join(',')
+  // While something is waiting for Arc to confirm it, keep asking the chain for its receipt (reading only) so the
+  // status moves from Submitted to Confirmed on its own. Stops as soon as nothing is pending.
   useEffect(() => {
     if (!user || !pendingKey) return
-    void reconcilePending(user, pendingKey.split(',') as `0x${string}`[])
-  }, [user, pendingKey])
+    const hashes = pendingKey.split(',') as `0x${string}`[]
+    const stop = new AbortController()
+    const run = async () => {
+      await reconcilePending(user, hashes)
+      if (stop.signal.aborted) return
+      if (readLocalTxs(user).some((tx) => hashes.includes(tx.hash) && tx.status !== 'pending')) void queryClient.invalidateQueries({ queryKey: ['arvexa'] })
+    }
+    void run()
+    const timer = setInterval(() => void run(), 8000)
+    return () => {
+      stop.abort()
+      clearInterval(timer)
+    }
+  }, [user, pendingKey, queryClient])
 
   const items = useMemo(() => {
     const onchain = (query.data?.pages ?? []).flatMap((page) => page.items)

@@ -72,3 +72,26 @@ bun run dev
 - Loading: vault balance and allowance reads start as soon as an address is configured (in parallel with the contract check) but are only shown once the contract is verified. The first activity scan publishes interim results after each window (`partial` pages) instead of blocking on all four. The USDC balance is one shared query (`useWalletUsdc`); do not add a second read of it.
 - `tests/logic.test.ts` and `tests/ui.test.tsx` still assume no swap provider is registered; those two tests fail since the Uniswap provider was added.
 - Activity scans 5,000-block windows paced at about one per second: the public RPC rate limits `eth_getLogs` faster than that (measured). Do not parallelize or speed this up without re-measuring.
+
+## Payment tools
+
+- Saved addresses (`src/lib/contacts.ts`), notes and categories (`src/lib/txMeta.ts`) live in localStorage per connected wallet via `src/lib/ownerStore.ts`. They hold names, notes and categories only, never keys.
+- `TxPlan.meta` carries a note/category; `useTxFlow` saves it against the real hash after the wallet submits. It is never part of the transaction.
+- `TxStepper` maps the real flow phase to Preparing, Confirming, Submitted, Confirmed. Activity polls receipts every 8s while a local transaction is pending.
+- `/scan` decodes QR codes with `jsqr` (camera or photo) and opens `/send?to=` with only valid values filled in. Receive shares a pay link built from `getShareBase()`.
+- Insights (`src/lib/insights.ts`) count only confirmed Send and Receive items found in the scanned blocks. Do not add sample data.
+
+## Payments platform
+
+- All of it is local plus real Arc reads: no contract, no backend. Data lives in localStorage per wallet through `ownerStore` (`arvexa:requests:v1`, `splits`, `reminders`, `paidlinks`, `merchant`). Never store keys.
+- `src/lib/payments/`: `requests` (request, link, invoice and split-share records), `links` (/pay URLs), `settle` (reads Arc for matching USDC transfers; verify by hash), `splits`, `reminders`, `ledger` (overview, categories, customers), `receipts`.
+- A request is Paid only through `applySettlement`, from a real Transfer to the wallet with the exact amount at or after its creation block (a split share with a payer address also needs that sender). USDC has no memo, so same-amount requests are matched oldest first. Never add a manual "mark paid".
+- `usePaymentSync` polls Arc every 15s only while something is pending. Reminders never send: Pay now opens `/send` prefilled and the reminder advances only after the receipt is confirmed (`useTxFlow` `onSuccess(plan, hash)`).
+- `/pay` opens without a wallet (public shell in `App.tsx`) so a payer sees the details before connecting.
+
+## Navigation
+
+- Screens are code-split in `src/lib/pages.ts` (`PAGE_LOADERS`). `Link` starts downloading a screen on pointer-enter, press or focus; `navigate()` preloads too; `warmAllPages()` fetches the rest when the browser is idle after the app shows. Only code is preloaded, never blockchain data.
+- `MainApp` uses `useDeferredValue(route)`: the tapped screen is highlighted at once, the previous page stays (dimmed, with a progress line) until the next one is ready, and `PageFallback` (Back button plus skeletons) shows only if nothing is on screen yet.
+- `navigate()` ignores the current path+query so repeat taps never add history; scroll position is saved per history entry and restored on back. `ensureBackStack()` puts the Dashboard behind a directly opened page (not `/pay`) so the device back button does not leave the app.
+- Every secondary page starts with `PageHeader` or `ModuleHero`, both of which render `BackButton`. New pages must do the same.

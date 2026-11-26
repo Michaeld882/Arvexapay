@@ -9,6 +9,7 @@ import { AppError, classifyError } from '@/lib/errors'
 import type { TxPlan } from '@/lib/plan'
 import { waitForReceipt } from '@/lib/rpc'
 import { updateLocalTxStatus, upsertLocalTx } from '@/lib/txLog'
+import { setTxMeta } from '@/lib/txMeta'
 
 /**
  * idle      nothing in progress
@@ -41,7 +42,7 @@ const IDLE: FlowState = { phase: 'idle', plan: null }
 
 interface TxFlowOptions {
   /** Called once after a transaction is confirmed and its onchain events are verified. */
-  onSuccess?: (plan: TxPlan) => void
+  onSuccess?: (plan: TxPlan, hash: Hex) => void
 }
 
 export function useTxFlow(options: TxFlowOptions = {}) {
@@ -94,7 +95,7 @@ export function useTxFlow(options: TxFlowOptions = {}) {
       updateLocalTxStatus(owner, hash, 'success')
       setState({ phase: 'success', plan, hash: finalHash, resultText })
       setLastConfirmed({ hash: finalHash, title: plan.title, resultText: resultText ?? plan.successText })
-      onSuccessRef.current?.(plan)
+      onSuccessRef.current?.(plan, finalHash)
       void queryClient.invalidateQueries({ queryKey: ['arvexa'] })
     },
     [queryClient],
@@ -141,6 +142,8 @@ export function useTxFlow(options: TxFlowOptions = {}) {
         status: 'pending',
         createdAt: Math.floor(Date.now() / 1000),
       })
+      // The note and category are kept in this browser against the real hash. They are not part of the transaction.
+      if (plan.meta) setTxMeta(address, hash, plan.meta)
       await finalize(hash, plan, address)
     } catch (err) {
       handleError(err, plan)

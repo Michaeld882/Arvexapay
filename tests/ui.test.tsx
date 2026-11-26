@@ -132,7 +132,7 @@ describe('send flow', () => {
     fireEvent.click(confirm)
     expect(await screen.findByText(/You rejected the request/, {}, { timeout: TIMEOUT })).toBeTruthy()
     expect(screen.queryByText('Transaction hash')).toBeNull()
-    expect(screen.queryByText('Confirmed')).toBeNull()
+    expect(screen.queryByText('Confirmed', { selector: 'p' })).toBeNull()
   }, TIMEOUT * 3)
 
   test('double clicking confirm submits exactly one transaction request', async () => {
@@ -151,7 +151,7 @@ describe('send flow', () => {
     expect(await screen.findByText('Confirm in your wallet')).toBeTruthy()
     await new Promise((resolve) => setTimeout(resolve, 300))
     expect(wallet.sendCount()).toBe(1)
-    expect(screen.queryByText('Confirmed')).toBeNull()
+    expect(screen.queryByText('Confirmed', { selector: 'p' })).toBeNull()
   }, TIMEOUT * 3)
 })
 
