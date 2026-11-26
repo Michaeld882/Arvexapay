@@ -71,7 +71,7 @@ export interface SendLabels {
 }
 
 const SEND_LABELS: SendLabels = { title: 'Send USDC', confirmLabel: 'Confirm and send', successText: 'USDC sent and verified onchain.' }
-export const WALLET_WITHDRAW_LABELS: SendLabels = { title: 'Withdraw USDC', confirmLabel: 'Confirm withdrawal', successText: 'Withdrawal confirmed and verified onchain.' }
+export const WALLET_WITHDRAW_LABELS: SendLabels = { title: 'Cash Out USDC', confirmLabel: 'Confirm cash out', successText: 'Cash out confirmed and verified onchain.' }
 
 export function buildSendPlan(from: Address, to: Address, amount: bigint, labels: SendLabels = SEND_LABELS): TxPlan {
   return {
@@ -110,7 +110,7 @@ export function buildApprovePlan(owner: Address, amount: bigint): TxPlan {
     kind: 'approve',
     title: 'Approve USDC for Arvexa',
     confirmLabel: 'Confirm approval',
-    successText: 'Approval confirmed. You can now deposit.',
+    successText: 'Approval confirmed. You can now top up.',
     rows: [
       { label: 'Allowance', value: `${formatUsdcDisplay(amount)} USDC` },
       { label: 'Spender (Arvexa)', value: vault, mono: true },
@@ -134,9 +134,9 @@ export function buildDepositPlan(account: Address, amount: bigint): TxPlan {
   const vault = requireVault()
   return {
     kind: 'deposit',
-    title: 'Deposit to Arvexa vault',
-    confirmLabel: 'Confirm deposit',
-    successText: 'Deposit confirmed and verified onchain.',
+    title: 'Top Up Arvexa vault',
+    confirmLabel: 'Confirm top up',
+    successText: 'Top up confirmed and verified onchain.',
     rows: [
       { label: 'Amount', value: `${formatUsdcDisplay(amount)} USDC` },
       { label: 'Vault', value: shortAddress(vault), mono: true },
@@ -159,9 +159,9 @@ export function buildWithdrawPlan(account: Address, to: Address, amount: bigint)
   const vault = requireVault()
   return {
     kind: 'withdraw',
-    title: 'Withdraw from Arvexa vault',
-    confirmLabel: 'Confirm withdrawal',
-    successText: 'Withdrawal confirmed and verified onchain.',
+    title: 'Cash Out from Arvexa vault',
+    confirmLabel: 'Confirm cash out',
+    successText: 'Cash out confirmed and verified onchain.',
     rows: [
       { label: 'Amount', value: `${formatUsdcDisplay(amount)} USDC` },
       { label: 'To', value: to, mono: true },

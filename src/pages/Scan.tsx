@@ -201,7 +201,7 @@ function ScanContent({ owner }: { owner: string }) {
 export default function Scan() {
   return (
     <>
-      <PageHeader title="Scan" subtitle="Scan a wallet or payment QR code, then review the payment before you confirm." />
+      <PageHeader title="ScanFlow" subtitle="Scan a wallet or payment QR code, then review the payment before you confirm." />
       <ConnectGate allowWrongNetwork>{(address) => <ScanContent owner={address} />}</ConnectGate>
     </>
   )

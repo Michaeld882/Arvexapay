@@ -14,8 +14,8 @@ import { CategoryBadge, TxMetaEditor } from '@/components/TxMetaEditor'
 const KIND_META: Record<ActivityKind, { label: string; icon: LucideIcon; sign: '+' | '-' | ''; tint: string }> = {
   send: { label: 'Send', icon: ArrowUpRight, sign: '-', tint: '#22d3ee' },
   receive: { label: 'Receive', icon: ArrowDownLeft, sign: '+', tint: '#2cf5a6' },
-  deposit: { label: 'Deposit', icon: ArrowDownToLine, sign: '', tint: '#4f8cff' },
-  withdraw: { label: 'Withdraw', icon: ArrowUpFromLine, sign: '', tint: '#a855f7' },
+  deposit: { label: 'Top Up', icon: ArrowDownToLine, sign: '', tint: '#4f8cff' },
+  withdraw: { label: 'Cash Out', icon: ArrowUpFromLine, sign: '', tint: '#a855f7' },
   swap: { label: 'Swap', icon: ArrowLeftRight, sign: '', tint: '#e879f9' },
   approve: { label: 'Approval', icon: ShieldCheck, sign: '', tint: '#94a3b8' },
 }

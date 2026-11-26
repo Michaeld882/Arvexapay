@@ -49,7 +49,7 @@ export function checkRecipient(input: string, rules: AddressRules = { blockVault
     return { ok: false, empty: false, message: 'That is the USDC token contract, not a wallet. Funds sent there would be lost.' }
   }
   if (rules.blockVault && ARVEXA_ADDRESS && isAddressEqual(address, ARVEXA_ADDRESS)) {
-    return { ok: false, empty: false, message: 'That is the Arvexa vault. Use Deposit to add funds to it.' }
+    return { ok: false, empty: false, message: 'That is the Arvexa vault. Use Top Up to add funds to it.' }
   }
   return { ok: true, address }
 }

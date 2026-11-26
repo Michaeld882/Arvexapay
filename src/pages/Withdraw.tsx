@@ -52,7 +52,7 @@ function WithdrawForm({ address }: { address: Address }) {
         ? 'Amount is higher than your vault balance.'
         : 'Amount is higher than your wallet USDC balance.'
       : leavesNoFee
-        ? `That leaves too little to pay the network fee (about ${formatUsdcDisplay(feeUsdc ?? 0n)} USDC). You can withdraw up to ${formatUsdcDisplay(spendable ?? 0n)} USDC.`
+        ? `That leaves too little to pay the network fee (about ${formatUsdcDisplay(feeUsdc ?? 0n)} USDC). You can cash out up to ${formatUsdcDisplay(spendable ?? 0n)} USDC.`
         : null
   const ready = to.ok && value.ok && !insufficient && !leavesNoFee && available !== undefined && (!fromVault || isReady)
 
@@ -61,7 +61,7 @@ function WithdrawForm({ address }: { address: Address }) {
     : flow.isBusy
       ? 'A transaction is in progress.'
       : fromVault && !isReady
-        ? 'The Arvexa vault contract is not verified, so vault withdrawals are disabled. You can still withdraw from your wallet.'
+        ? 'The Arvexa vault contract is not verified, so vault cash-outs are disabled. You can still cash out from your wallet.'
         : !to.ok
           ? recipientError
             ? null
@@ -86,7 +86,7 @@ function WithdrawForm({ address }: { address: Address }) {
     <>
       <div className="space-y-4">
         {showVault && (
-        <div role="radiogroup" aria-label="Withdraw from" className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface-muted p-1">
+        <div role="radiogroup" aria-label="Cash out from" className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface-muted p-1">
           {SOURCES.map(({ id, label }) => (
             <button
               key={id}
@@ -107,7 +107,7 @@ function WithdrawForm({ address }: { address: Address }) {
         )}
         {showVault && (fromVault || !isReady) && <VaultGate />}
         <Card className="space-y-5">
-          <RecipientInput label="Withdraw to" value={recipient} onChange={setRecipient} error={recipientError} disabled={flow.isBusy} />
+          <RecipientInput label="Cash out to" value={recipient} onChange={setRecipient} error={recipientError} disabled={flow.isBusy} />
           <AmountInput
             value={amount}
             onChange={setAmount}
@@ -129,17 +129,17 @@ function WithdrawForm({ address }: { address: Address }) {
                 </Button>
               }
             >
-              {classifyError(retry.error).message} Withdrawing is disabled until your balance can be checked.
+              {classifyError(retry.error).message} Cashing out is disabled until your balance can be checked.
             </Banner>
           )}
-          {fromVault && isReady && vaultBalance.data === 0n && <Banner tone="info">Your vault balance is empty. Deposit USDC first to withdraw it.</Banner>}
+          {fromVault && isReady && vaultBalance.data === 0n && <Banner tone="info">Your vault balance is empty. Top up USDC first to cash it out.</Banner>}
           <Button className="w-full" disabled={!ready || flow.isBusy} onClick={review}>
-            Review withdrawal
+            Review cash out
           </Button>
           <DisabledHint reason={reason} />
           <p className="text-center text-xs text-muted">
             {fromVault
-              ? 'Vault withdrawals only ever pay out your own vault balance. Nobody else can move it.'
+              ? 'Vault cash-outs only ever pay out your own vault balance. Nobody else can move it.'
               : 'Transfers are irreversible. Double-check the address, and only use Arc Mainnet addresses.'}
           </p>
         </Card>
@@ -155,7 +155,7 @@ export default function Withdraw() {
   return (
     <>
       <PageHeader
-        title="Withdraw"
+        title="Cash Out"
         subtitle={`Send USDC out to any address${vault.state === 'missing' ? '' : ', from your wallet or your Arvexa vault'}. You review everything before your wallet is asked to sign.`}
       />
       <ConnectGate>{(address) => <WithdrawForm address={address} />}</ConnectGate>

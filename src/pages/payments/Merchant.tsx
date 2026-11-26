@@ -136,7 +136,7 @@ function MerchantContent({ owner }: { owner: Address }) {
           <p className="text-xs text-muted">Customers scan this and choose the amount, or use Accept USDC below for a fixed amount.</p>
         </div>
         <div className="mx-auto w-fit rounded-3xl bg-white p-4 shadow-[0_0_50px_-12px_var(--accent)]">
-          {openLink ? <QRCodeSVG value={openLink} size={208} level="M" bgColor="#ffffff" fgColor="#0c2118" title="Merchant payment QR code" /> : <Skeleton className="size-[208px]" />}
+          {openLink ? <QRCodeSVG value={openLink} size={208} level="M" bgColor="#ffffff" fgColor="#0c2118" title="PayHub payment QR code" /> : <Skeleton className="size-[208px]" />}
         </div>
         <p className="mono rounded-2xl border border-line bg-surface-muted px-4 py-3 text-xs [overflow-wrap:anywhere]">{owner}</p>
         <div className="flex gap-2">

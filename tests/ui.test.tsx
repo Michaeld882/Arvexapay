@@ -169,16 +169,16 @@ describe('configuration states', () => {
     // No vault contract is configured, so no vault option and no configuration warning is shown to the user.
     window.history.pushState({}, '', '/withdraw')
     const second = mount()
-    const withdraw = (await screen.findByRole('button', { name: 'Review withdrawal' }, { timeout: TIMEOUT })) as HTMLButtonElement
+    const withdraw = (await screen.findByRole('button', { name: 'Review cash out' }, { timeout: TIMEOUT })) as HTMLButtonElement
     expect(withdraw.disabled).toBe(true)
     expect(screen.queryByText('Contract not configured')).toBeNull()
-    expect(screen.queryByRole('radiogroup', { name: 'Withdraw from' })).toBeNull()
+    expect(screen.queryByRole('radiogroup', { name: 'Cash out from' })).toBeNull()
     second.unmount()
 
     window.history.pushState({}, '', '/deposit')
     mount()
     expect(await screen.findByText('Fund your wallet', {}, { timeout: TIMEOUT })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Review deposit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Review top up' })).toBeNull()
     expect(screen.queryByText('Contract not configured')).toBeNull()
   }, TIMEOUT * 3)
 })

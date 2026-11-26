@@ -71,7 +71,7 @@ describe('payments hub and dashboard', () => {
     await open('/')
     mount()
     await screen.findByTestId('hero-balance', {}, { timeout: TIMEOUT })
-    const actions: Array<[string, string]> = [['Send', '/send'], ['Receive', '/receive'], ['Scan and pay', '/scan'], ['Split payment', '/payments/split'], ['Payment link', '/payments/links'], ['Invoice', '/payments/invoices'], ['Request payment', '/payments/requests'], ['Merchant mode', '/payments/merchant']]
+    const actions: Array<[string, string]> = [['Send', '/send'], ['Receive', '/receive'], ['ScanFlow', '/scan'], ['Split payment', '/payments/split'], ['Payment link', '/payments/links'], ['Invoice', '/payments/invoices'], ['Request payment', '/payments/requests'], ['PayHub', '/payments/merchant']]
     const quick = within(document.querySelector('section[aria-label="Quick actions"]') as HTMLElement)
     for (const [name, href] of actions) expect(quick.getByRole('link', { name }).getAttribute('href'), name).toBe(href)
     for (const href of ['/deposit', '/withdraw', '/swap', '/activity', '/payments']) expect(document.querySelector(`nav[aria-label="More"] a[href="${href}"]`) !== null, href).toBe(true)
@@ -211,7 +211,7 @@ describe('split payment, merchant mode and reminders', () => {
     await open('/payments/merchant')
     mount()
     await screen.findByText('Accept USDC', { selector: 'h2' }, { timeout: TIMEOUT })
-    await screen.findByTitle('Merchant payment QR code', {}, { timeout: TIMEOUT })
+    await screen.findByTitle('PayHub payment QR code', {}, { timeout: TIMEOUT })
     type('Amount (USDC)', '4')
     const accept = screen.getByRole('button', { name: 'Accept USDC' })
     await waitFor(() => expect((accept as HTMLButtonElement).disabled).toBe(false), { timeout: TIMEOUT })

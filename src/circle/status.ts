@@ -68,7 +68,7 @@ export function useIntegrationStatus(): IntegrationItem[] {
     : usdc.isError
       ? { id: 'usdc', group: 'live', title: 'USDC on Arc', state: 'unavailable', detail: 'Could not reach Arc Mainnet to check the USDC contract.' }
       : usdc.data.ok
-        ? { id: 'usdc', group: 'live', title: 'USDC on Arc', state: 'active', detail: `Native USDC contract verified onchain (${usdc.data.decimals} decimals). Balances, Send, Deposit and Withdraw use it.` }
+        ? { id: 'usdc', group: 'live', title: 'USDC on Arc', state: 'active', detail: `Native USDC contract verified onchain (${usdc.data.decimals} decimals). Balances, Send, Top Up and Cash Out use it.` }
         : { id: 'usdc', group: 'live', title: 'USDC on Arc', state: 'unavailable', detail: 'The contract at the configured USDC address did not match USDC on Arc Mainnet.' }
 
   const cctpItem: IntegrationItem = !CIRCLE_CONFIG.cctpEnabled

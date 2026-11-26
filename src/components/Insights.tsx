@@ -93,7 +93,7 @@ export function Insights({ activity }: { activity: Activity }) {
           </div>
           {insights.trend.length > 0 ? <Trend buckets={insights.trend} now={now} /> : <p className="mt-4 text-xs text-muted">A sent and received trend appears once you have two or more transfers.</p>}
           <p className="mt-3 text-[11px] text-muted">
-            USDC, from confirmed transactions in blocks {activity.oldestScannedBlock?.toString() ?? '…'} to {activity.headBlock?.toString() ?? '…'}. Vault deposits and withdrawals are not counted as sent or received.
+            USDC, from confirmed transactions in blocks {activity.oldestScannedBlock?.toString() ?? '…'} to {activity.headBlock?.toString() ?? '…'}. Vault top-ups and cash-outs are not counted as sent or received.
           </p>
           {activity.hasMore && (
             <div className="mt-2">

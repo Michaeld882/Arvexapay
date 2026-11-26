@@ -67,9 +67,9 @@ function BalanceCard({ address }: { address: Address }) {
             <span data-testid="gateway-balance" className="display text-4xl font-semibold tabular-nums">{total === undefined ? gateway.data.total : formatUsdcDisplay(total)}</span>
             <span className="text-lg font-medium text-subtle">USDC in Gateway</span>
           </p>
-          {gateway.data.pending && <p className="text-sm text-warn">{gateway.data.pending} USDC pending. A deposit counts after its source chain finalizes.</p>}
+          {gateway.data.pending && <p className="text-sm text-warn">{gateway.data.pending} USDC pending. A top up counts after its source chain finalizes.</p>}
           {gateway.data.chains.length === 0 ? (
-            <p className="text-sm text-muted">Nothing is deposited in Gateway yet.</p>
+            <p className="text-sm text-muted">Nothing has been topped up in Gateway yet.</p>
           ) : (
             <ul className="divide-y divide-line rounded-2xl border border-line bg-surface-muted px-3.5" aria-label="Gateway balance by chain">
               {gateway.data.chains.map((item) => (
@@ -130,10 +130,10 @@ function useGatewayAction() {
 
 const STATUS_TEXT: Record<GatewayRecord['kind'], Record<GatewayRecord['state'], { title: string; body: (r: GatewayRecord) => string }>> = {
   deposit: {
-    pending: { title: 'Deposit in progress', body: (r) => (r.txHash ? `Submitted on ${r.chainName}. Waiting for it to be confirmed on the chain.` : `Approve the request in your wallet. Keep this tab open until it finishes.`) },
-    unconfirmed: { title: 'Deposit not confirmed yet', body: (r) => r.error ?? 'Check again in a moment.' },
-    success: { title: 'Deposit confirmed', body: (r) => `Your ${r.amount} USDC is confirmed on ${r.chainName}. It joins your Gateway balance after that chain finalizes, and shows as pending until then.` },
-    error: { title: 'Deposit stopped', body: (r) => `${r.error ?? 'The deposit did not complete.'} No success was assumed.` },
+    pending: { title: 'Top up in progress', body: (r) => (r.txHash ? `Submitted on ${r.chainName}. Waiting for it to be confirmed on the chain.` : `Approve the request in your wallet. Keep this tab open until it finishes.`) },
+    unconfirmed: { title: 'Top up not confirmed yet', body: (r) => r.error ?? 'Check again in a moment.' },
+    success: { title: 'Top up confirmed', body: (r) => `Your ${r.amount} USDC is confirmed on ${r.chainName}. It joins your Gateway balance after that chain finalizes, and shows as pending until then.` },
+    error: { title: 'Top up stopped', body: (r) => `${r.error ?? 'The top up did not complete.'} No success was assumed.` },
   },
   spend: {
     pending: { title: 'Spend in progress', body: (r) => (r.txHash ? 'Circle submitted the mint. Reading Arc to confirm it.' : 'Sign the request in your wallet. Circle then mints USDC on Arc. Keep this tab open.') },
@@ -212,7 +212,7 @@ function Actions({ address, arc, chains, onRecord }: { address: Address; arc: Ev
   return (
     <Card className="space-y-5">
       <div role="radiogroup" aria-label="Gateway action" className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface-muted p-1">
-        {([['deposit', 'Deposit to Gateway'], ['spend', 'Spend to Arc']] as const).map(([id, label]) => (
+        {([['deposit', 'Top Up Gateway'], ['spend', 'Spend to Arc']] as const).map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -228,7 +228,7 @@ function Actions({ address, arc, chains, onRecord }: { address: Address; arc: Ev
       </div>
       {mode === 'deposit' ? (
         <div>
-          <label htmlFor="gw-chain" className="mb-2 block text-sm font-semibold text-ink-2">Deposit from</label>
+          <label htmlFor="gw-chain" className="mb-2 block text-sm font-semibold text-ink-2">Top up from</label>
           <select id="gw-chain" value={chainKey(chain)} disabled={action.busy} onChange={(event) => setChainId(event.target.value)} className="min-h-12 w-full rounded-2xl border border-line bg-surface-muted px-3 text-sm font-semibold text-ink outline-none focus:border-line-strong disabled:opacity-60">
             {chains.map((item) => (
               <option key={chainKey(item)} value={chainKey(item)}>{item.name}</option>
@@ -250,7 +250,7 @@ function Actions({ address, arc, chains, onRecord }: { address: Address; arc: Ev
         error={amountError}
       />
       <dl className="divide-y divide-line">
-        <Row label="Action">{mode === 'deposit' ? `Deposit from ${chain.name}` : 'Spend to Arc Mainnet'}</Row>
+        <Row label="Action">{mode === 'deposit' ? `Top up from ${chain.name}` : 'Spend to Arc Mainnet'}</Row>
         <Row label="Amount">{amountText ? `${amountText} USDC` : '—'}</Row>
         <FeeRows lines={quote.data} loading={ready && quote.isFetching} error={quote.isError ? 'Circle could not quote this right now. The fee is shown when the request runs.' : undefined} />
       </dl>
@@ -259,7 +259,7 @@ function Actions({ address, arc, chains, onRecord }: { address: Address; arc: Ev
       </Banner>
       {action.error && <Banner tone="danger" title="Request stopped">{action.error} Nothing was assumed to have succeeded.</Banner>}
       <Button className="w-full" disabled={!ready || action.busy} loading={action.busy} onClick={submit}>
-        {action.busy ? 'Waiting for wallet and Circle' : mode === 'deposit' ? 'Deposit to Gateway' : 'Spend to Arc'}
+        {action.busy ? 'Waiting for wallet and Circle' : mode === 'deposit' ? 'Top Up Gateway' : 'Spend to Arc'}
       </Button>
       {reason && <p className="text-center text-xs text-muted">{reason}</p>}
     </Card>
@@ -276,7 +276,7 @@ function History({ records, onRecheck, disabled }: { records: GatewayRecord[]; o
           <li key={record.id} className="flex items-start justify-between gap-3 py-3 text-sm">
             <div className="min-w-0">
               <p className="font-semibold">
-                {record.kind === 'deposit' ? `Deposit from ${record.chainName}` : 'Spend to Arc'}: {record.amount} USDC
+                {record.kind === 'deposit' ? `Top up from ${record.chainName}` : 'Spend to Arc'}: {record.amount} USDC
               </p>
               <p className="text-xs text-muted">{formatTimestamp(Math.floor(record.createdAt / 1000))}</p>
               {record.error && record.state !== 'success' && <p className={cx('mt-1 text-xs [overflow-wrap:anywhere]', record.state === 'error' ? 'text-danger' : 'text-warn')}>{record.error}</p>}
@@ -351,7 +351,7 @@ function GatewayContent({ address }: { address: Address }) {
 export default function CircleGateway() {
   return (
     <>
-      <PageHeader title="Gateway" subtitle="One unified USDC balance with Circle Gateway. Deposit on any supported chain, then spend it on Arc without bridging step by step." />
+      <PageHeader title="Gateway" subtitle="One unified USDC balance with Circle Gateway. Top up on any supported chain, then spend it on Arc without bridging step by step." />
       {CIRCLE_CONFIG.gatewayEnabled ? (
         <ConnectGate allowWrongNetwork>{(address) => <GatewayContent address={address} />}</ConnectGate>
       ) : (

@@ -14,8 +14,8 @@ const FILTERS: ReadonlyArray<{ id: Filter; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'send', label: 'Send' },
   { id: 'receive', label: 'Receive' },
-  { id: 'deposit', label: 'Deposit' },
-  { id: 'withdraw', label: 'Withdraw' },
+  { id: 'deposit', label: 'Top Up' },
+  { id: 'withdraw', label: 'Cash Out' },
   { id: 'swap', label: 'Swap' },
 ]
 
@@ -57,7 +57,7 @@ function ActivityContent({ address }: { address: Address }) {
           </div>
         ) : activity.failed && activity.items.length === 0 ? (
           <Banner tone="danger" title="Could not load activity" action={<Button variant="secondary" className="min-h-10" onClick={activity.refresh}>Try again</Button>}>
-            {activity.failureMessage} No history is shown rather than guessing.
+            {activity.failureMessage} No activity is shown rather than guessing.
           </Banner>
         ) : visible.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted">
@@ -105,7 +105,7 @@ function ActivityContent({ address }: { address: Address }) {
 export default function Activity() {
   return (
     <>
-      <PageHeader title="Activity" subtitle="Your wallet timeline, built from real onchain history. Failed or pending transactions appear only if you submitted them from this browser." />
+      <PageHeader title="Activity" subtitle="Your wallet timeline, built from real onchain activity. Failed or pending transactions appear only if you submitted them from this browser." />
       <ConnectGate allowWrongNetwork>{(address) => <ActivityContent address={address} />}</ConnectGate>
     </>
   )

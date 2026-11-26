@@ -27,7 +27,7 @@ export const MODULES: Record<ModuleId, PayModule> = {
   link: { id: 'link', title: 'Payment Links', tagline: 'A link anyone can open and pay', path: '/payments/links', icon: Link2, from: '#22d3ee', to: '#4f8cff' },
   invoice: { id: 'invoice', title: 'Invoices', tagline: 'Bill customers and track payment', path: '/payments/invoices', icon: FileText, from: '#4f8cff', to: '#a855f7' },
   request: { id: 'request', title: 'Payment Requests', tagline: 'Ask for USDC and track the reply', path: '/payments/requests', icon: HandCoins, from: '#2cf5a6', to: '#22d3ee' },
-  merchant: { id: 'merchant', title: 'Merchant Mode', tagline: 'Show a QR and accept USDC', path: '/payments/merchant', icon: Store, from: '#2cf5a6', to: '#4f8cff' },
+  merchant: { id: 'merchant', title: 'PayHub', tagline: 'Show a QR and accept USDC', path: '/payments/merchant', icon: Store, from: '#2cf5a6', to: '#4f8cff' },
   receipts: { id: 'receipts', title: 'Receipts', tagline: 'Verified proof of every payment', path: '/payments/receipts', icon: ReceiptText, from: '#22d3ee', to: '#a855f7' },
   customers: { id: 'customers', title: 'Customers', tagline: 'Payments grouped by wallet', path: '/payments/customers', icon: UsersRound, from: '#e879f9', to: '#4f8cff' },
   reminders: { id: 'reminders', title: 'Reminders', tagline: 'Recurring payments, never automatic', path: '/payments/reminders', icon: CalendarClock, from: '#4f8cff', to: '#22d3ee' },

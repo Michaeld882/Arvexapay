@@ -16,7 +16,7 @@ interface Feature {
 
 const FEATURES: readonly Feature[] = [
   { id: 'send', title: 'Send & Receive', blurb: 'Send or receive USDC using a wallet address or QR code.', from: '#2cf5a6', to: '#22d3ee', icon: ArrowLeftRight, motion: 'ob-nudge 2.2s ease-in-out infinite', Demo: SendReceiveDemo },
-  { id: 'scan', title: 'Scan & Pay', blurb: 'Scan a payment QR code, review the details, then confirm.', from: '#22d3ee', to: '#4f8cff', icon: QrCode, motion: 'ob-breath 2.6s ease-in-out infinite', Demo: ScanPayDemo },
+  { id: 'scan', title: 'ScanFlow', blurb: 'Scan a payment QR code, review the details, then confirm.', from: '#22d3ee', to: '#4f8cff', icon: QrCode, motion: 'ob-breath 2.6s ease-in-out infinite', Demo: ScanPayDemo },
   { id: 'split', title: 'Split Payment', blurb: 'Divide a bill between friends and track who has paid.', from: '#a855f7', to: '#e879f9', icon: Users, motion: 'ob-nudge 2.6s ease-in-out infinite', Demo: SplitDemo },
   { id: 'request', title: 'Request Pay', blurb: 'Create a payment link with an amount and reference, then track the payment status.', from: '#4f8cff', to: '#a855f7', icon: Link2, motion: 'ob-breath 2.8s ease-in-out infinite', Demo: RequestPayDemo },
 ]
@@ -92,7 +92,7 @@ export function FeatureExplorer() {
         ))}
       </ul>
       <p className="mt-4 px-1 text-xs text-[#8da2c2]" data-testid="ob-also">
-        Also in the app: Swap, Deposit, Withdraw, Bridge &amp; Gateway, and your Activity history.
+        Also in the app: Swap, Top Up, Cash Out, Bridge &amp; Gateway, and your Activity.
       </p>
     </section>
   )

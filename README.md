@@ -9,14 +9,14 @@ Built with [Arc Studio](https://studio.arc.io)
 - Saved addresses with names (add, edit, delete, copy, pick when sending), kept on your device
 - Optional note and category on each payment, saved on your device with the transaction hash (never sent onchain)
 - Live four-step status for every transaction: Preparing, Confirming, Submitted, Confirmed
-- Scan a wallet or payment QR code with your camera (or a photo), then review the payment in Send
+- ScanFlow: scan a wallet or payment QR code with your camera (or a photo), then review the payment in Send
 - Payment insights, a wallet activity timeline and a shareable payment profile on Receive, all from real onchain data
-- Payments hub: payment requests, shareable payment links, invoices, split bills, Merchant Mode (full-screen QR), receipts, customer history, recurring reminders and contacts. A request, link, invoice or split share turns Paid only when the real USDC payment is found on Arc Mainnet
+- Payments hub: payment requests, shareable payment links, invoices, split bills, PayHub (full-screen QR), receipts, customer history, recurring reminders and contacts. A request, link, invoice or split share turns Paid only when the real USDC payment is found on Arc Mainnet
 - Public pay page: opening a payment link shows the details and lets the payer connect and pay
 - Dashboard order: balance, quick actions, payment overview, pending requests and upcoming payments, recent activity, insights
 - One animated intro screen for every disconnected visitor: what Arc is and how the main payment features work, with the Connect Wallet button on it. Connecting opens the wallet modal and goes straight into the app
 - Dashboard with wallet balance, vault balance, quick actions and recent transactions
-- Send, Receive (address and QR code), Deposit, Withdraw and Activity
+- Send, Receive (address and QR code), Top Up, Cash Out and Activity
 - Circle Integration area: USDC on Arc status, native CCTP bridging into Arc from other chains, a Gateway unified USDC balance (kept separate from wallet and vault balances), and payment rails with payment tracking
 - Swap screen that stays disabled ("Swap liquidity is not configured") until a verified provider is registered
 - Light and dark themes that persist after refresh

@@ -14,7 +14,7 @@ export const VAULT_LABEL: Record<VaultState['state'], string> = {
 }
 
 const VAULT_DETAIL: Record<VaultState['state'], string> = {
-  missing: 'Set VITE_ARVEXA_CONTRACT_ADDRESS to the deployed Arvexa contract to enable the vault (Deposit and Withdraw). Sending USDC works without it.',
+  missing: 'Set VITE_ARVEXA_CONTRACT_ADDRESS to the deployed Arvexa contract to enable the vault (Top Up and Cash Out). Sending USDC works without it.',
   invalid: 'VITE_ARVEXA_CONTRACT_ADDRESS is set but is not a valid nonzero address. Vault actions are disabled.',
   checking: 'Checking the configured address on Arc Mainnet.',
   error: 'The Arc Mainnet RPC did not answer while checking the contract. Vault actions stay disabled until it can be verified.',
@@ -56,7 +56,7 @@ export function VaultSummary() {
           {ARVEXA.address} <ExplorerLink address={ARVEXA.address} label="Explorer" />
         </p>
       )}
-      {vault.state === 'ready' && vault.paused && <p className="text-warn">Deposits are paused by the contract owner. Withdrawals still work.</p>}
+      {vault.state === 'ready' && vault.paused && <p className="text-warn">Top-ups are paused by the contract owner. Cash-outs still work.</p>}
     </div>
   )
 }

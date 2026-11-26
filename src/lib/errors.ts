@@ -114,7 +114,7 @@ export function classifyError(err: unknown): AppError {
       if (name === 'InsufficientBalance') return new AppError('insufficient_usdc', detail, { cause: err })
       if (name === 'InvalidRecipient') return new AppError('invalid_address', detail, { cause: err })
       if (name === 'ZeroAmount') return new AppError('invalid_amount', detail, { cause: err })
-      if (name === 'EnforcedPause') return new AppError('reverted', 'Deposits are paused by the contract owner. ' + detail, { cause: err })
+      if (name === 'EnforcedPause') return new AppError('reverted', 'Top-ups are paused by the contract owner. ' + detail, { cause: err })
       return new AppError('reverted', detail, { cause: err })
     }
   }

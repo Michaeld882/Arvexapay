@@ -109,7 +109,7 @@ function FundWallet({ address }: { address: Address }) {
         ) : activity.isError ? (
           <p className="mt-2 text-sm text-muted">{classifyError(activity.error).message}</p>
         ) : incoming.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">No incoming transfers found in the scanned blocks. A deposit only appears here after it is confirmed onchain.</p>
+          <p className="mt-2 text-sm text-muted">No incoming transfers found in the scanned blocks. A top up only appears here after it is confirmed onchain.</p>
         ) : (
           <ActivityList items={incoming} compact />
         )}
@@ -138,7 +138,7 @@ function VaultDeposit({ address }: { address: Address }) {
     : insufficient
       ? 'Amount is higher than your wallet USDC balance.'
       : leavesNoFee
-        ? `That leaves too little to pay the network fee (about ${formatUsdcDisplay(feeUsdc ?? 0n)} USDC). You can deposit up to ${formatUsdcDisplay(spendable ?? 0n)} USDC.`
+        ? `That leaves too little to pay the network fee (about ${formatUsdcDisplay(feeUsdc ?? 0n)} USDC). You can top up at most ${formatUsdcDisplay(spendable ?? 0n)} USDC.`
         : null
   const needsApproval = value.ok && allowance.data !== undefined && allowance.data < value.raw
   const ready = walletReady && isReady && !isPaused && value.ok && !insufficient && !leavesNoFee && walletUsdc.data !== undefined && allowance.data !== undefined
@@ -148,11 +148,11 @@ function VaultDeposit({ address }: { address: Address }) {
     : flow.isBusy
       ? 'A transaction is in progress.'
       : !walletReady
-        ? 'Switch your wallet to Arc Mainnet to deposit.'
+        ? 'Switch your wallet to Arc Mainnet to top up.'
         : !isReady
-          ? 'The Arvexa vault contract is not verified yet, so vault deposits are disabled.'
+          ? 'The Arvexa vault contract is not verified yet, so vault top-ups are disabled.'
           : isPaused
-            ? 'Deposits are paused by the contract owner.'
+            ? 'Top-ups are paused by the contract owner.'
             : !value.ok
               ? amountError
                 ? null
@@ -176,10 +176,10 @@ function VaultDeposit({ address }: { address: Address }) {
       <Card className="space-y-5">
         <div>
           <h2 className="display text-lg font-semibold">2. Add to your Arvexa vault</h2>
-          <p className="mt-1 text-sm text-muted">Optional. Move USDC from your wallet into your personal vault balance. Only you can withdraw it.</p>
+          <p className="mt-1 text-sm text-muted">Optional. Move USDC from your wallet into your personal vault balance. Only you can cash it out.</p>
         </div>
         <VaultGate />
-        {isPaused && <Banner tone="warn" title="Deposits are paused">The contract owner has paused new deposits. You can still withdraw.</Banner>}
+        {isPaused && <Banner tone="warn" title="Top-ups are paused">The contract owner has paused new top-ups. You can still cash out.</Banner>}
         <AmountInput
           value={amount}
           onChange={setAmount}
@@ -196,9 +196,9 @@ function VaultDeposit({ address }: { address: Address }) {
             {classifyError(allowance.error).message}
           </Banner>
         )}
-        {needsApproval && <Banner tone="info">Step 1 of 2: approve exactly this amount for Arvexa. Then review and confirm the deposit.</Banner>}
+        {needsApproval && <Banner tone="info">Step 1 of 2: approve exactly this amount for Arvexa. Then review and confirm the top up.</Banner>}
         <Button className="w-full" disabled={!ready || flow.isBusy} onClick={review}>
-          {needsApproval ? 'Review approval' : 'Review deposit'}
+          {needsApproval ? 'Review approval' : 'Review top up'}
         </Button>
         <DisabledHint reason={reason} />
       </Card>
@@ -212,7 +212,7 @@ export default function Deposit() {
   const { vault } = useVault()
   return (
     <>
-      <PageHeader title="Deposit" subtitle={vault.state === 'missing' ? 'Get USDC into your wallet on Arc Mainnet.' : 'Get USDC into your wallet, then optionally into your Arvexa vault.'} />
+      <PageHeader title="Top Up" subtitle={vault.state === 'missing' ? 'Get USDC into your wallet on Arc Mainnet.' : 'Get USDC into your wallet, then optionally into your Arvexa vault.'} />
       <div className="space-y-5">
         <ConnectGate allowWrongNetwork>
           {(address) => (

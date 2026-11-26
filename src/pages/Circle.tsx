@@ -63,7 +63,7 @@ function UsdcCard() {
   return (
     <Card className="space-y-2">
       <h2 className="display text-lg font-semibold">USDC on Arc</h2>
-      <p className="text-sm text-muted">Circle-issued native USDC is Arvexa's settlement and payment asset. Balances, Send, Deposit, Withdraw and the vault all use this one contract.</p>
+      <p className="text-sm text-muted">Circle-issued native USDC is Arvexa's settlement and payment asset. Balances, Send, Top Up, Cash Out and the vault all use this one contract.</p>
       <dl className="divide-y divide-line">
         <Row label="Network">{NETWORK_LABEL}</Row>
         <Row label="USDC contract"><span className="mono text-xs">{USDC.address}</span></Row>

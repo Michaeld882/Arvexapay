@@ -228,7 +228,7 @@ describe('payment insights', () => {
     mount()
     const hero = await screen.findByTestId('hero-balance', {}, { timeout: TIMEOUT })
     const actions = screen.getByRole('region', { name: 'Quick actions' })
-    expect([...actions.querySelectorAll('nav:first-of-type a')].map((link) => link.textContent)).toEqual(['Send', 'Receive', 'Scan & Pay', 'Split', 'Pay Link', 'Invoice', 'Request', 'Merchant'])
+    expect([...actions.querySelectorAll('nav:first-of-type a')].map((link) => link.textContent)).toEqual(['Send', 'Receive', 'ScanFlow', 'Split', 'Pay Link', 'Invoice', 'Request', 'PayHub'])
     const insights = await screen.findByText('Payment insights')
     const recent = screen.getByText('Recent transactions')
     const after = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)

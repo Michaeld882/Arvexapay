@@ -31,7 +31,7 @@ describe('the one intro screen', () => {
     mount()
     expect(await screen.findByText('Built on', { exact: false }, { timeout: TIMEOUT })).toBeTruthy()
     expect(screen.getByText('Fast, low-cost stablecoin payments powered by Arc.')).toBeTruthy()
-    for (const title of ['Send & Receive', 'Scan & Pay', 'Split Payment', 'Request Pay']) expect(screen.getByText(title)).toBeTruthy()
+    for (const title of ['Send & Receive', 'ScanFlow', 'Split Payment', 'Request Pay']) expect(screen.getByText(title)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Connect Wallet/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull()
     expect(screen.queryByText(/Coming soon/i)).toBeNull()

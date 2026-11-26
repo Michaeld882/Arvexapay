@@ -19,19 +19,19 @@ import { Link } from '@/lib/router'
 const ACTIONS: ReadonlyArray<{ to: string; label: string; full: string; icon: LucideIcon; tint: string }> = [
   { to: '/send', label: 'Send', full: 'Send', icon: Send, tint: '#22d3ee' },
   { to: '/receive', label: 'Receive', full: 'Receive', icon: QrCode, tint: '#2cf5a6' },
-  { to: '/scan', label: 'Scan & Pay', full: 'Scan and pay', icon: ScanLine, tint: '#4f8cff' },
+  { to: '/scan', label: 'ScanFlow', full: 'ScanFlow', icon: ScanLine, tint: '#4f8cff' },
   { to: MODULES.split.path, label: 'Split', full: 'Split payment', icon: MODULES.split.icon, tint: MODULES.split.from },
   { to: MODULES.link.path, label: 'Pay Link', full: 'Payment link', icon: MODULES.link.icon, tint: MODULES.link.from },
   { to: MODULES.invoice.path, label: 'Invoice', full: 'Invoice', icon: MODULES.invoice.icon, tint: MODULES.invoice.from },
   { to: MODULES.request.path, label: 'Request', full: 'Request payment', icon: HandCoins, tint: MODULES.request.from },
-  { to: MODULES.merchant.path, label: 'Merchant', full: 'Merchant mode', icon: MODULES.merchant.icon, tint: MODULES.merchant.from },
+  { to: MODULES.merchant.path, label: 'PayHub', full: 'PayHub', icon: MODULES.merchant.icon, tint: MODULES.merchant.from },
 ]
 
 const MORE: ReadonlyArray<{ to: string; label: string }> = [
-  { to: '/deposit', label: 'Deposit' },
-  { to: '/withdraw', label: 'Withdraw' },
+  { to: '/deposit', label: 'Top Up' },
+  { to: '/withdraw', label: 'Cash Out' },
   { to: '/swap', label: 'Swap' },
-  { to: '/activity', label: 'History' },
+  { to: '/activity', label: 'Activity' },
   { to: MODULES.receipts.path, label: 'Receipts' },
   { to: '/payments', label: 'All payment tools' },
 ]

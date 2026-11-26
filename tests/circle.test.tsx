@@ -182,7 +182,7 @@ describe('disabled buttons explain themselves', () => {
   test('Withdraw explains what is missing, and the vault options stay hidden while no vault is configured', async () => {
     await open('/withdraw')
     mount()
-    expect(await screen.findByRole('button', { name: 'Review withdrawal' }, { timeout: TIMEOUT })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Review cash out' }, { timeout: TIMEOUT })).toBeTruthy()
     expect(screen.getByTestId('disabled-reason').textContent).toBe('Enter a recipient address to continue.')
     expect(screen.queryByText('Contract not configured')).toBeNull()
   }, TIMEOUT * 2)
@@ -234,12 +234,12 @@ describe('circle pages', () => {
     mount()
     expect(await screen.findByText(/Ethereum wallet balance: /, {}, { timeout: TIMEOUT })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Amount in USDC'), { target: { value: '1' } })
-    const button = (await screen.findByRole('button', { name: 'Deposit to Gateway' })) as HTMLButtonElement
+    const button = (await screen.findByRole('button', { name: 'Top Up Gateway' })) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(false))
     fireEvent.click(button)
-    expect(await screen.findByText('Deposit stopped', {}, { timeout: TIMEOUT * 2 })).toBeTruthy()
+    expect(await screen.findByText('Top up stopped', {}, { timeout: TIMEOUT * 2 })).toBeTruthy()
     expect(screen.getAllByText(/No success was assumed/).length).toBeGreaterThan(0)
-    expect(screen.queryByText('Deposit confirmed')).toBeNull()
+    expect(screen.queryByText('Top up confirmed')).toBeNull()
   }, TIMEOUT * 4)
 
   test('gateway page shows its own balance, separate from the wallet balance', async () => {
