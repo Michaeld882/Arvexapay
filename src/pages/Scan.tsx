@@ -1,40 +1,32 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Camera, ImageUp, ScanLine, ShieldCheck, X } from 'lucide-react'
 import { ConnectGate } from '@/components/ConnectGate'
 import { Banner, Button, Card, PageHeader, cx } from '@/components/ui'
-import { contactFor, useContacts } from '@/lib/contacts'
-import { type PaymentQr, parsePaymentQr, sendLink } from '@/lib/paymentQr'
+import { type ScanTarget, resolveScan, sendReviewLink } from '@/lib/paymentQr'
 import { navigate } from '@/lib/router'
+import { CAMERA_MESSAGES, cameraBlocked, cameraProblem, openCamera, readFrame } from '@/lib/scanner'
 
 type Phase = 'idle' | 'starting' | 'scanning'
 
-const MAX_SCAN_WIDTH = 640
+const FRAME_INTERVAL_MS = 150
+const CAMERA_SCAN_SIDE = 960
+const PHOTO_SCAN_SIDE = 1600
 
-function cameraMessage(err: unknown): string {
-  const name = err instanceof DOMException || err instanceof Error ? err.name : ''
-  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') return 'Camera permission was denied. Allow camera access in your browser settings, or choose a photo of the QR code instead.'
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No camera was found on this device. You can choose a photo of the QR code instead.'
-  if (name === 'NotReadableError') return 'The camera is being used by another app. Close it and try again.'
-  if (name === 'SecurityError') return 'Camera access needs a secure (https) connection.'
-  return 'The camera could not be started. You can choose a photo of the QR code instead.'
-}
-
-/** Reads a QR code from pixels. The decoder is loaded only when scanning starts. */
-async function decode(data: ImageData): Promise<string | null> {
-  const { default: jsQR } = await import('jsqr')
-  return jsQR(data.data, data.width, data.height, { inversionAttempts: 'dontInvert' })?.data ?? null
-}
-
-function ScanContent({ owner }: { owner: string }) {
-  const contacts = useContacts(owner)
+function ScanContent() {
   const video = useRef<HTMLVideoElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const active = useRef(false)
+  const frames = useRef(0)
+  const manualId = useId()
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<PaymentQr | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [target, setTarget] = useState<ScanTarget | null>(null)
+  const [opening, setOpening] = useState(false)
+  const [manual, setManual] = useState('')
+  const [manualError, setManualError] = useState<string | null>(null)
 
   const stop = useCallback(() => {
     active.current = false
@@ -47,12 +39,39 @@ function ScanContent({ owner }: { owner: string }) {
 
   useEffect(() => stop, [stop])
 
+  // The camera light must never stay on in the background.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden' && active.current) {
+        stop()
+        setNotice('The camera was turned off because you left this screen. Start it again when you are ready.')
+      }
+    }
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
+  }, [stop])
+
+  /** Every route ends on a screen that shows the payment first. Nothing is signed or sent from here. */
+  const handle = useCallback((text: string): boolean => {
+    const next = resolveScan(text)
+    if (next.kind === 'send') {
+      setOpening(true)
+      navigate(sendReviewLink(next.address, next.amount))
+    } else if (next.kind === 'pay') {
+      setOpening(true)
+      navigate(next.path)
+    } else {
+      setTarget(next)
+    }
+    return next.kind === 'send' || next.kind === 'pay'
+  }, [])
+
   const finish = useCallback(
     (text: string) => {
       stop()
-      setResult(parsePaymentQr(text))
+      handle(text)
     },
-    [stop],
+    [handle, stop],
   )
 
   const tick = useCallback(async function run() {
@@ -60,31 +79,34 @@ function ScanContent({ owner }: { owner: string }) {
     const el = video.current
     const surface = canvas.current
     if (el && surface && el.readyState >= 2 && el.videoWidth > 0) {
-      const scale = Math.min(1, MAX_SCAN_WIDTH / el.videoWidth)
-      surface.width = Math.round(el.videoWidth * scale)
-      surface.height = Math.round(el.videoHeight * scale)
-      const context = surface.getContext('2d', { willReadFrequently: true })
-      if (context) {
-        context.drawImage(el, 0, 0, surface.width, surface.height)
-        const text = await decode(context.getImageData(0, 0, surface.width, surface.height))
+      frames.current += 1
+      try {
+        // Every fourth frame also tries inverted (light on dark) codes.
+        const text = await readFrame(el, surface, { maxSide: CAMERA_SCAN_SIDE, tryInverted: frames.current % 4 === 0 })
         if (text && active.current) return finish(text)
+      } catch {
+        // a frame that cannot be read is skipped
       }
     }
-    if (active.current) timer.current = setTimeout(() => void run(), 150)
+    if (active.current) timer.current = setTimeout(() => void run(), FRAME_INTERVAL_MS)
   }, [finish])
 
-  const start = async () => {
+  const reset = () => {
     setError(null)
-    setResult(null)
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('This browser or connection does not allow camera access. Use https, or choose a photo of the QR code instead.')
-      return
-    }
+    setNotice(null)
+    setTarget(null)
+    setOpening(false)
+  }
+
+  const start = async () => {
+    reset()
     setPhase('starting')
     try {
-      const media = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      if (await cameraBlocked()) throw Object.assign(new Error('blocked'), { name: 'NotAllowedError' })
+      const media = await openCamera()
       stream.current = media
       active.current = true
+      frames.current = 0
       if (video.current) {
         video.current.srcObject = media
         await video.current.play()
@@ -93,38 +115,48 @@ function ScanContent({ owner }: { owner: string }) {
       void tick()
     } catch (err) {
       stop()
-      setError(cameraMessage(err))
+      setError(CAMERA_MESSAGES[err instanceof Error && err.name === 'UnsupportedError' ? 'unsupported' : cameraProblem(err)])
     }
+  }
+
+  const cancel = () => {
+    stop()
+    setNotice('Scan cancelled. You can start the camera again, choose a photo, or enter the details below.')
   }
 
   const fromImage = async (file: File | undefined) => {
     if (!file) return
-    setError(null)
-    setResult(null)
+    reset()
     try {
       const bitmap = await createImageBitmap(file)
       const surface = canvas.current
-      const context = surface?.getContext('2d', { willReadFrequently: true })
-      if (!surface || !context) throw new Error('canvas unavailable')
-      const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height))
-      surface.width = Math.round(bitmap.width * scale)
-      surface.height = Math.round(bitmap.height * scale)
-      context.drawImage(bitmap, 0, 0, surface.width, surface.height)
-      const text = await decode(context.getImageData(0, 0, surface.width, surface.height))
+      if (!surface) throw new Error('canvas unavailable')
+      const text = await readFrame(bitmap, surface, { maxSide: PHOTO_SCAN_SIDE, tryInverted: true })
+      bitmap.close?.()
       if (text) finish(text)
-      else setError('No QR code was found in that image. Try a sharper, closer photo.')
+      else setError('No QR code was found in that image. Try a sharper, closer photo with the whole code in view.')
     } catch {
       setError('That file could not be read as an image.')
     }
   }
 
-  const saved = result?.ok ? contactFor(contacts, result.address) : undefined
+  const submitManual = (event: React.FormEvent) => {
+    event.preventDefault()
+    reset()
+    setManualError(null)
+    const text = manual.trim()
+    if (text === '') {
+      setManualError('Paste a wallet address, a payment link or an ethereum: payment request.')
+      return
+    }
+    if (!handle(text)) setManualError(null)
+  }
 
   return (
     <div className="space-y-5">
       <Card className="space-y-4">
         <div className={cx('relative mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-3xl border bg-black/80', phase === 'scanning' ? 'border-accent' : 'border-line')} style={phase === 'scanning' ? { boxShadow: '0 0 40px -10px var(--accent)' } : undefined}>
-          <video ref={video} playsInline muted className={cx('size-full object-cover', phase !== 'scanning' && 'opacity-0')} aria-label="Camera preview" />
+          <video ref={video} playsInline muted autoPlay className={cx('size-full object-cover', phase !== 'scanning' && 'opacity-0')} aria-label="Camera preview" />
           <canvas ref={canvas} className="hidden" />
           {phase !== 'scanning' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-white/80">
@@ -141,7 +173,7 @@ function ScanContent({ owner }: { owner: string }) {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           {phase === 'scanning' ? (
-            <Button variant="secondary" className="flex-1" onClick={stop}>
+            <Button variant="secondary" className="flex-1" onClick={cancel}>
               <X className="size-4" aria-hidden />
               Stop camera
             </Button>
@@ -163,33 +195,62 @@ function ScanContent({ owner }: { owner: string }) {
         </p>
       </Card>
 
+      <Card className="space-y-3">
+        <form onSubmit={submitManual} className="space-y-3" noValidate>
+          <label htmlFor={manualId} className="block text-sm font-semibold text-ink-2">
+            Or enter it manually
+          </label>
+          <input
+            id={manualId}
+            value={manual}
+            onChange={(event) => { setManual(event.target.value); setManualError(null) }}
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            inputMode="url"
+            placeholder="0x… address, payment link or ethereum: request"
+            aria-invalid={manualError ? true : undefined}
+            className="min-h-12 w-full rounded-2xl border border-line bg-surface-muted px-4 font-mono text-sm text-ink outline-none transition-colors placeholder:font-sans placeholder:text-subtle focus:border-line-strong"
+          />
+          {manualError && <p className="text-xs text-danger" role="alert">{manualError}</p>}
+          <Button type="submit" variant="secondary" className="w-full">
+            Continue to payment
+          </Button>
+        </form>
+      </Card>
+
+      {opening && (
+        <Banner tone="success" title="Payment code found">
+          Opening the payment. You review everything before your wallet is asked to sign.
+        </Banner>
+      )}
+
+      {notice && <Banner tone="info">{notice}</Banner>}
+
       {error && (
         <Banner tone="warn" title="Could not scan">
           {error}
         </Banner>
       )}
 
-      {result && !result.ok && (
-        <Banner tone="danger" title="Not a valid payment code" action={<Button variant="secondary" className="min-h-10" onClick={() => setResult(null)}>Scan again</Button>}>
-          {result.message}
+      {target?.kind === 'invalid' && (
+        <Banner tone="danger" title={target.title} action={<Button variant="secondary" className="min-h-10" onClick={reset}>Scan again</Button>}>
+          {target.message}
         </Banner>
       )}
 
-      {result?.ok && (
+      {target?.kind === 'api' && (
         <Card className="space-y-3 border-accent" aria-live="polite">
-          <p className="text-sm font-semibold text-success">Payment code found</p>
-          <div className="rounded-2xl border border-line bg-surface-muted p-3">
-            <p className="text-xs text-muted">Pay to{saved ? ` (saved as ${saved.name})` : ''}</p>
-            <p className="mono mt-1 text-sm [overflow-wrap:anywhere]">{result.address}</p>
-            {result.amount && <p className="mt-2 text-sm font-semibold tabular-nums">{result.amount} USDC requested</p>}
-          </div>
-          <p className="text-xs text-muted">Check the address matches what you expect. You will review the full payment on the next screen before your wallet is asked to sign.</p>
+          <p className="text-sm font-semibold">This is a web link, not a wallet address</p>
+          <p className="mono rounded-2xl border border-line bg-surface-muted p-3 text-xs [overflow-wrap:anywhere]">{target.url}</p>
+          <p className="text-xs text-muted">If this is an API that asks for payment (x402), you can check its price and pay from your wallet. Nothing is requested from it until you choose to.</p>
           <div className="flex gap-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setResult(null)}>
+            <Button variant="secondary" className="flex-1" onClick={reset}>
               Scan again
             </Button>
-            <Button className="flex-[2]" onClick={() => navigate(sendLink(result.address, result.amount))}>
-              Continue to Send
+            <Button className="flex-[2]" onClick={() => navigate(`/payments/x402?url=${encodeURIComponent(target.url)}`)}>
+              Open API payments
             </Button>
           </div>
         </Card>
@@ -202,7 +263,7 @@ export default function Scan() {
   return (
     <>
       <PageHeader title="ScanFlow" subtitle="Scan a wallet or payment QR code, then review the payment before you confirm." />
-      <ConnectGate allowWrongNetwork>{(address) => <ScanContent owner={address} />}</ConnectGate>
+      <ConnectGate allowWrongNetwork>{() => <ScanContent />}</ConnectGate>
     </>
   )
 }

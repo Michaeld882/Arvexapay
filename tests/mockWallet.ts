@@ -5,6 +5,7 @@ export type SendMode = 'reject' | 'hang'
 export interface MockWallet {
   calls: Array<{ method: string; params?: unknown }>
   sendCount: () => number
+  signCount: () => number
   chainId: number
   setSendMode: (mode: SendMode) => void
   /** Simulates the user switching accounts in the wallet. */
@@ -50,6 +51,10 @@ const provider = {
       case 'eth_sendTransaction':
         if (active.mode() === 'hang') return new Promise(() => undefined)
         throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+      case 'eth_signTypedData_v4':
+        // Like sending, signing is rejected or never answered. The mock never produces a signature.
+        if (active.mode() === 'hang') return new Promise(() => undefined)
+        throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
       default:
         throw Object.assign(new Error(`mock wallet does not implement ${method}`), { code: -32601 })
     }
@@ -62,6 +67,7 @@ export function installMockWallet(account: Address, initialChainId: number): Moc
   const wallet: MockWallet = {
     calls: [],
     sendCount: () => wallet.calls.filter((call) => call.method === 'eth_sendTransaction').length,
+    signCount: () => wallet.calls.filter((call) => call.method === 'eth_signTypedData_v4').length,
     chainId: initialChainId,
     setSendMode: (mode) => {
       sendMode = mode

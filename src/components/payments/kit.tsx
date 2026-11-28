@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
-import { BarChart3, BookUser, CalendarClock, FileText, HandCoins, Link2, ReceiptText, RefreshCw, Share2, Store, Users, UsersRound, type LucideIcon } from 'lucide-react'
+import { BarChart3, BookUser, CalendarClock, FileText, Globe, HandCoins, Link2, ReceiptText, RefreshCw, Share2, Store, Users, UsersRound, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Address } from 'viem'
 import { BackButton, Banner, Button, CopyButton, cx } from '@/components/ui'
@@ -9,7 +9,7 @@ import { timeAgo } from '@/lib/format'
 import { STATUS_LABEL, type RequestStatus } from '@/lib/payments/requests'
 import { getShareBase } from '@/lib/share'
 
-export type ModuleId = 'split' | 'link' | 'invoice' | 'request' | 'merchant' | 'receipts' | 'customers' | 'reminders' | 'contacts' | 'insights'
+export type ModuleId = 'split' | 'link' | 'invoice' | 'request' | 'merchant' | 'receipts' | 'customers' | 'reminders' | 'contacts' | 'insights' | 'x402'
 
 export interface PayModule {
   id: ModuleId
@@ -32,6 +32,7 @@ export const MODULES: Record<ModuleId, PayModule> = {
   customers: { id: 'customers', title: 'Customers', tagline: 'Payments grouped by wallet', path: '/payments/customers', icon: UsersRound, from: '#e879f9', to: '#4f8cff' },
   reminders: { id: 'reminders', title: 'Reminders', tagline: 'Recurring payments, never automatic', path: '/payments/reminders', icon: CalendarClock, from: '#4f8cff', to: '#22d3ee' },
   contacts: { id: 'contacts', title: 'Contacts', tagline: 'Saved addresses for fast sending', path: '/payments/contacts', icon: BookUser, from: '#2cf5a6', to: '#a855f7' },
+  x402: { id: 'x402', title: 'API Payments', tagline: 'Pay a web API with x402', path: '/payments/x402', icon: Globe, from: '#22d3ee', to: '#2cf5a6' },
   insights: { id: 'insights', title: 'Insights', tagline: 'Real totals and trends', path: '/payments', icon: BarChart3, from: '#a855f7', to: '#22d3ee' },
 }
 

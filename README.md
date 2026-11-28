@@ -9,7 +9,8 @@ Built with [Arc Studio](https://studio.arc.io)
 - Saved addresses with names (add, edit, delete, copy, pick when sending), kept on your device
 - Optional note and category on each payment, saved on your device with the transaction hash (never sent onchain)
 - Live four-step status for every transaction: Preparing, Confirming, Submitted, Confirmed
-- ScanFlow: scan a wallet or payment QR code with your camera (or a photo), then review the payment in Send
+- ScanFlow: scan a wallet or payment QR code with your camera, a photo, or by pasting it, then review the payment before you confirm
+- API Payments (x402): pay a web API that asks for USDC per request, signing with your wallet (separate from wallet-to-wallet payments)
 - Payment insights, a wallet activity timeline and a shareable payment profile on Receive, all from real onchain data
 - Payments hub: payment requests, shareable payment links, invoices, split bills, PayHub (full-screen QR), receipts, customer history, recurring reminders and contacts. A request, link, invoice or split share turns Paid only when the real USDC payment is found on Arc Mainnet
 - Public pay page: opening a payment link shows the details and lets the payer connect and pay
@@ -40,6 +41,7 @@ bun run build      # production build
 bun run check      # lint and typecheck
 bun run test       # app tests (uses the real Arc Mainnet RPC and Circle services, read only)
 bun run test:rpc   # RPC smoke test
+bun run test:x402  # a real x402 payment on Arc Testnet (needs throwaway test keys funded from the Circle faucet)
 bun run verify:abi         # frontend ABI vs compiled contract
 bun run verify:deployment  # read-only check of the deployed contract on Arc Mainnet
 bun run verify:circle      # read-only check of USDC on Arc, CCTP and Gateway against Arc Mainnet and Circle

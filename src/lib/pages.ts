@@ -27,6 +27,7 @@ export const PAGE_LOADERS: Record<string, Loader> = {
   '/payments/customers': () => import('@/pages/payments/Customers'),
   '/payments/reminders': () => import('@/pages/payments/Reminders'),
   '/payments/contacts': () => import('@/pages/payments/Contacts'),
+  '/payments/x402': () => import('@/pages/payments/X402'),
   '/circle': () => import('@/pages/Circle'),
   '/circle/bridge': () => import('@/pages/CircleBridge'),
   '/circle/gateway': () => import('@/pages/CircleGateway'),

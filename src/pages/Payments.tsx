@@ -16,7 +16,7 @@ import { statusOf } from '@/lib/payments/requests'
 import { useSplits } from '@/lib/payments/splits'
 import { Link } from '@/lib/router'
 
-const HUB: ModuleId[] = ['split', 'link', 'invoice', 'request', 'merchant', 'receipts', 'customers', 'reminders', 'contacts']
+const HUB: ModuleId[] = ['split', 'link', 'invoice', 'request', 'merchant', 'receipts', 'customers', 'reminders', 'contacts', 'x402']
 
 function PaymentsContent({ owner }: { owner: Address }) {
   const data = usePaymentsData(owner)

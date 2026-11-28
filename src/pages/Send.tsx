@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { isAddressEqual, type Address } from 'viem'
 import { ConnectGate } from '@/components/ConnectGate'
 import { ContactPicker } from '@/components/Contacts'
@@ -18,12 +18,12 @@ import { NOTE_MAX, cleanNote, type Category } from '@/lib/txMeta'
 import { checkAmount, checkRecipient } from '@/lib/validate'
 
 /** A scanned QR or shared link opens Send as /send?to=0x...&amount=1 . Only values that pass the normal checks are used. */
-function prefillFromLink(): { to: string; amount: string; note: string; reminder?: string } {
+function prefillFromLink(): { to: string; amount: string; note: string; reminder?: string; review: boolean } {
   const params = new URLSearchParams(window.location.search)
   const to = checkRecipient(params.get('to') ?? '')
   const amount = checkAmount(params.get('amount') ?? '')
   const reminder = params.get('reminder')
-  return { to: to.ok ? to.address : '', amount: amount.ok ? (params.get('amount') ?? '') : '', note: cleanNote(params.get('note') ?? '') ?? '', reminder: reminder && /^[\w-]{1,40}$/.test(reminder) ? reminder : undefined }
+  return { to: to.ok ? to.address : '', amount: amount.ok ? (params.get('amount') ?? '') : '', note: cleanNote(params.get('note') ?? '') ?? '', reminder: reminder && /^[\w-]{1,40}$/.test(reminder) ? reminder : undefined, review: params.get('review') === '1' && to.ok && amount.ok }
 }
 
 function SendForm({ address }: { address: Address }) {
@@ -75,6 +75,15 @@ function SendForm({ address }: { address: Address }) {
     if (!to.ok || !value.ok || flow.isBusy) return
     flow.open(withMeta(buildSendPlan(address, to.address, value.raw), { note: cleanNote(note), category }))
   }
+
+  // A scanned payment that already has an amount lands on the review screen. This only opens the review: the
+  // wallet is asked to sign only after the person confirms there, and only once the normal checks pass.
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (!prefill.review || autoOpened.current || !ready || flow.isBusy) return
+    autoOpened.current = true
+    review()
+  }, [prefill.review, ready, flow.isBusy])
 
   return (
     <>
